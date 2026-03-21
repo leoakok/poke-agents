@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { createPokeAgentsMcpServer } from "./server.js";
 import { mountDashboardApi } from "../http/dashboard-api.js";
+import { runWithMcpRequestContext } from "../control/mcp-request-context.js";
 
 function parseArgs(argv: string[]): { mode: "stdio" | "http"; port: number } {
   const httpIdx = argv.indexOf("--http");
@@ -37,7 +38,12 @@ async function main(): Promise<void> {
         sessionIdGenerator: undefined,
       });
       await mcp.connect(transport);
-      await transport.handleRequest(req, res, req.body);
+      const pokeCallbackUrl = headerOne(req, "x-poke-callback-url");
+      const pokeCallbackToken = headerOne(req, "x-poke-callback-token");
+      await runWithMcpRequestContext(
+        { pokeCallbackUrl, pokeCallbackToken },
+        () => transport.handleRequest(req, res, req.body),
+      );
       res.on("close", () => {
         void transport.close();
         void mcp.close();
@@ -71,7 +77,9 @@ async function main(): Promise<void> {
   const url = `http://127.0.0.1:${port}/mcp`;
   const api = `http://127.0.0.1:${port}/api`;
   console.error(`poke-agents MCP (HTTP) → ${url}`);
-  console.error(`poke-agents dashboard API → ${api}/connectors | /sessions | /session?id=…`);
+  console.error(
+    `poke-agents dashboard API → ${api}/connectors | /sessions | /session | /agent-templates | /agent-runtime | /agent-runtime/stream | POST /agent-runtime/stop`
+  );
   console.error(`Poke: poke tunnel ${url} -n "Poke agents"`);
 }
 
@@ -79,3 +87,13 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+function headerOne(
+  req: Request,
+  name: string,
+): string | undefined {
+  const v = req.headers[name];
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && v[0]) return v[0];
+  return undefined;
+}

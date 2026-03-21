@@ -6,7 +6,7 @@
 export function getMcpUpstreamBase(): string {
   const fromServer = process.env.POKE_AGENTS_MCP_ORIGIN?.replace(/\/$/, "");
   const legacy = process.env.NEXT_PUBLIC_POKE_AGENTS_ORIGIN?.replace(/\/$/, "");
-  return fromServer || legacy || "http://127.0.0.1:8740";
+  return fromServer || legacy || "";
 }
 
 /** Empty string = same-origin (browser uses Next proxy). */
@@ -31,7 +31,7 @@ export type ConnectorRow = {
 };
 
 export type ConnectorsResponse =
-  | { ok: true; connectors: ConnectorRow[]; profile_editors: string[] }
+  | { ok: true; connectors: ConnectorRow[]; editors: string[] }
   | { ok: false; error: string };
 
 export type SessionRow = {
@@ -66,6 +66,63 @@ export type SessionDetailResponse =
     }
   | { ok: false; error: string };
 
+export type AgentProcessRow = {
+  pid: number;
+  ppid: number;
+  elapsed: string;
+  command: string;
+  mode: "headless" | "interactive" | "other";
+};
+
+export type AgentRuntimeResponse =
+  | {
+      ok: true;
+      scanned_at: string;
+      platform: string;
+      processes: AgentProcessRow[];
+      note?: string;
+    }
+  | { ok: false; error: string; scanned_at: string };
+
+export type AgentTemplateRow = {
+  id: string;
+  title: string;
+  summary: string;
+  promptPreamble: string;
+  pokeHint: string;
+  built_in?: boolean;
+};
+
+export type AgentTemplatesListResponse =
+  | {
+      ok: true;
+      storage_path: string;
+      built_in_ids: string[];
+      templates: AgentTemplateRow[];
+    }
+  | { ok: false; error: string };
+
+export type AgentTemplatesMutationBody =
+  | {
+      upsert: {
+        id: string;
+        title: string;
+        summary: string;
+        promptPreamble: string;
+        pokeHint: string;
+      };
+    }
+  | { delete_id: string }
+  | {
+      replace_custom: Array<{
+        id: string;
+        title: string;
+        summary: string;
+        promptPreamble: string;
+        pokeHint: string;
+      }>;
+    };
+
 export async function fetchConnectors(): Promise<ConnectorsResponse> {
   const r = await fetch(apiUrl("/api/connectors"), { cache: "no-store" });
   if (!r.ok) {
@@ -79,11 +136,11 @@ export async function fetchConnectors(): Promise<ConnectorsResponse> {
 
 function sessionsPathWithQuery(params?: {
   limit?: number;
-  source?: string;
+  editor?: string;
 }): string {
   const u = new URL("/api/sessions", "http://_");
   if (params?.limit) u.searchParams.set("limit", String(params.limit));
-  if (params?.source) u.searchParams.set("source", params.source);
+  if (params?.editor) u.searchParams.set("editor", params.editor);
   return `${u.pathname}${u.search}`;
 }
 
@@ -95,7 +152,7 @@ function sessionPathWithQuery(sessionId: string): string {
 
 export async function fetchSessions(params?: {
   limit?: number;
-  source?: string;
+  editor?: string;
 }): Promise<SessionsResponse> {
   const path = sessionsPathWithQuery(params);
   const url = getApiBase() === "" ? path : `${getApiBase()}${path}`;
@@ -107,6 +164,75 @@ export async function fetchSessions(params?: {
     };
   }
   return r.json() as Promise<SessionsResponse>;
+}
+
+export type StopAgentResponse =
+  | { ok: true; pid: number }
+  | { ok: false; error: string };
+
+export async function stopAgentProcess(pid: number): Promise<StopAgentResponse> {
+  const r = await fetch(apiUrl("/api/agent-runtime/stop"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pid }),
+  });
+  const text = await r.text();
+  try {
+    return JSON.parse(text) as StopAgentResponse;
+  } catch {
+    return {
+      ok: false,
+      error: text || `HTTP ${r.status} ${r.statusText}`,
+    };
+  }
+}
+
+export async function fetchAgentRuntime(): Promise<AgentRuntimeResponse> {
+  const r = await fetch(apiUrl("/api/agent-runtime"), { cache: "no-store" });
+  if (!r.ok) {
+    return {
+      ok: false,
+      scanned_at: new Date().toISOString(),
+      error: `HTTP ${r.status} ${r.statusText}`,
+    };
+  }
+  return r.json() as Promise<AgentRuntimeResponse>;
+}
+
+export function agentRuntimeStreamUrl(): string {
+  const base = getApiBase();
+  const path = "/api/agent-runtime/stream";
+  return base ? `${base}${path}` : path;
+}
+
+export async function fetchAgentTemplates(): Promise<AgentTemplatesListResponse> {
+  const r = await fetch(apiUrl("/api/agent-templates"), { cache: "no-store" });
+  if (!r.ok) {
+    return {
+      ok: false,
+      error: `HTTP ${r.status} ${r.statusText}`,
+    };
+  }
+  return r.json() as Promise<AgentTemplatesListResponse>;
+}
+
+export async function mutateAgentTemplates(
+  body: AgentTemplatesMutationBody,
+): Promise<AgentTemplatesListResponse> {
+  const r = await fetch(apiUrl("/api/agent-templates"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  try {
+    return JSON.parse(text) as AgentTemplatesListResponse;
+  } catch {
+    return {
+      ok: false,
+      error: text || `HTTP ${r.status} ${r.statusText}`,
+    };
+  }
 }
 
 export async function fetchSessionDetail(

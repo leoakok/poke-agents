@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import type { SpawnResult } from "./types.js";
 import { stripAnsi } from "./strip-ansi.js";
 
@@ -134,26 +134,64 @@ export type CursorRunHeadlessParams = {
 };
 
 /** `agent -p "..."` non-interactive run */
-export async function cursorRunHeadless(
-  p: CursorRunHeadlessParams
-): Promise<SpawnResult> {
+function buildCursorHeadlessArgs(p: CursorRunHeadlessParams): string[] {
   const args: string[] = ["-p", p.prompt];
   args.push("--output-format", p.outputFormat);
   if (p.streamPartialOutput && p.outputFormat === "stream-json") {
     args.push("--stream-partial-output");
   }
-  if (p.trust) args.push("--trust");
+  const trust = p.trust ?? true;
+  if (trust) args.push("--trust");
   if (p.force) args.push("--force");
-  if (p.approveMcps) args.push("--approve-mcps");
+  const approveMcps = p.approveMcps ?? true;
+  if (approveMcps) args.push("--approve-mcps");
   if (p.cloud) args.push("--cloud");
   if (p.plan) args.push("--plan");
   if (p.mode) args.push("--mode", p.mode);
   if (p.model) args.push("--model", p.model);
-  if (p.sandbox) args.push("--sandbox", p.sandbox);
+  args.push("--sandbox", p.sandbox ?? "disabled");
   if (p.sessionId) args.push("--resume", p.sessionId);
   if (p.continueSession) args.push("--continue");
+  return args;
+}
+
+export async function cursorRunHeadless(
+  p: CursorRunHeadlessParams
+): Promise<SpawnResult> {
+  const args = buildCursorHeadlessArgs(p);
   return spawnCursorAgent(args, {
     cwd: p.cwd,
     timeoutMs: p.timeoutMs,
   });
+}
+
+/** Spawn `agent -p` without waiting; caller owns stdout/stderr and close events. */
+export function startCursorRunHeadlessDetached(
+  p: CursorRunHeadlessParams,
+): {
+  child: ChildProcess;
+  clearRunTimeout: () => void;
+  getTimedOut: () => boolean;
+} {
+  const bin = cursorAgentBin();
+  const args = buildCursorHeadlessArgs(p);
+  const timeoutMs = p.timeoutMs ?? cursorAgentTimeoutMs();
+  const child = spawn(bin, args, {
+    cwd: p.cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: agentEnv(),
+  });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill("SIGTERM");
+    setTimeout(() => child.kill("SIGKILL"), 5000).unref();
+  }, timeoutMs);
+  return {
+    child,
+    clearRunTimeout: () => {
+      clearTimeout(timer);
+    },
+    getTimedOut: () => timedOut,
+  };
 }

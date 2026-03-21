@@ -78,9 +78,9 @@ Use the same `POKE_AGENTS_EDITORS` in the environment if you start the HTTP proc
 
 | Tool | Purpose |
 |------|---------|
-| `list_connectors` | Cursor + OpenCode adapter health + `profile_editors` |
-| `list_sessions` | Merged recent sessions (optional `source`, `limit`, `project_path`) |
-| `get_session` | Full thread for an `id` from `list_sessions` |
+| `adapters` | Adapter health + `editors` allowlist |
+| `sessions` | Merged recent sessions (optional `editor`, `folder`, `limit`) |
+| `session` | Full thread for `sessions[].id` (param `id`) |
 
 ## 6. Expand beyond Cursor + OpenCode
 

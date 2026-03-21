@@ -5,23 +5,26 @@ import {
   getMessagesForProfile,
   listSessionsForProfile,
 } from "../connectors/registry.js";
+import { registerAgentTemplateTools } from "./agent-template-tools.js";
 import { registerControlTools } from "./control-tools.js";
 import { registerPokeAgentsPromptsAndResources } from "./prompts-resources.js";
+import { withMcpToolLogging } from "./tool-logging.js";
+import { registerWebTools } from "./web-tools.js";
 import { toolStructured } from "./tool-result.js";
 import {
   READ,
-  getSessionInput,
-  getSessionOutputShape,
-  listConnectorsOutput,
-  listSessionsInput,
-  listSessionsOutput,
+  adaptersOutput,
+  sessionInput,
+  sessionOutputShape,
+  sessionsInput,
+  sessionsOutput,
 } from "./tool-schemas.js";
 
 export function createPokeAgentsMcpServer(): McpServer {
   const mcp = new McpServer(
     {
       name: "poke-agents",
-      version: "0.1.1",
+      version: "0.2.0",
     },
     {
       capabilities: {},
@@ -29,13 +32,13 @@ export function createPokeAgentsMcpServer(): McpServer {
   );
 
   mcp.registerTool(
-    "list_connectors",
+    "adapters",
     {
-      title: READ.list_connectors.title,
-      description: READ.list_connectors.description,
-      outputSchema: listConnectorsOutput,
+      title: READ.adapters.title,
+      description: READ.adapters.description,
+      outputSchema: adaptersOutput,
     },
-    async () => {
+    withMcpToolLogging("adapters", async () => {
       const connectors = await Promise.all(
         activeConnectors().map(async (c) => {
           const h = await c.health();
@@ -50,24 +53,24 @@ export function createPokeAgentsMcpServer(): McpServer {
       return toolStructured({
         ok: true as const,
         connectors,
-        profile_editors: [...getAllowedEditorIds()],
+        editors: [...getAllowedEditorIds()],
       });
-    }
+    })
   );
 
   mcp.registerTool(
-    "list_sessions",
+    "sessions",
     {
-      title: READ.list_sessions.title,
-      description: READ.list_sessions.description,
-      inputSchema: listSessionsInput,
-      outputSchema: listSessionsOutput,
+      title: READ.sessions.title,
+      description: READ.sessions.description,
+      inputSchema: sessionsInput,
+      outputSchema: sessionsOutput,
     },
-    async ({ source, limit, project_path }) => {
+    withMcpToolLogging("sessions", async ({ editor, limit, folder }) => {
       const sessions = await listSessionsForProfile({
-        source,
+        source: editor,
         limit: limit ?? 50,
-        projectPath: project_path,
+        projectPath: folder,
       });
       return toolStructured({
         ok: true as const,
@@ -79,19 +82,19 @@ export function createPokeAgentsMcpServer(): McpServer {
           project_path: s.projectPath,
         })),
       });
-    }
+    })
   );
 
   mcp.registerTool(
-    "get_session",
+    "session",
     {
-      title: READ.get_session.title,
-      description: READ.get_session.description,
-      inputSchema: getSessionInput,
-      outputSchema: getSessionOutputShape,
+      title: READ.session.title,
+      description: READ.session.description,
+      inputSchema: sessionInput,
+      outputSchema: sessionOutputShape,
     },
-    async ({ session_id }) => {
-      const result = await getMessagesForProfile(session_id);
+    withMcpToolLogging("session", async ({ id }) => {
+      const result = await getMessagesForProfile(id);
       if (!result.ok) {
         return toolStructured({
           ok: false as const,
@@ -103,10 +106,12 @@ export function createPokeAgentsMcpServer(): McpServer {
         session: result.session,
         messages: result.messages,
       });
-    }
+    })
   );
 
   registerControlTools(mcp);
+  registerAgentTemplateTools(mcp);
+  registerWebTools(mcp);
   registerPokeAgentsPromptsAndResources(mcp);
 
   return mcp;

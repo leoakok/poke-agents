@@ -2,10 +2,14 @@ import type { ControlProviderId, ControlProviderMeta } from "./types.js";
 import { cursorAgentBin } from "./cursor-agent.js";
 
 const CURSOR_NOTES = [
-  "Listing chats uses disk snapshots (same as list_sessions), not `agent ls` (TUI-only).",
-  "Stop/interrupt is not exposed by the Cursor CLI; end the local `agent` process from the OS or terminal.",
+  "Listing chats uses disk snapshots (same as `sessions`), not `agent ls` (TUI-only).",
+  "Stop/interrupt is not exposed by the Cursor CLI; end the local `agent` process from the OS or terminal (see `session_stop` on `control_plan`).",
   "Requires `agent` on PATH or POKE_AGENTS_CURSOR_AGENT_BIN.",
-  "If `control_run_agent` fails with stderr like `[unavailable]`, that is Cursor cloud/auth/subscription — use `control_cli_status` and Cursor docs; poke-agents only spawns the CLI.",
+  "Default `control_agent.auto_chat` runs `create-chat` when you omit `resume` and `continue_chat` (one-shot headless). Set `auto_chat: false` for legacy behavior.",
+  "Default `control_agent` also passes `--sandbox disabled` (plus `trust` / `approve-mcps`) so headless runs are not stuck in Cursor’s network-restricted sandbox; set `sandbox: \"enabled\"` to isolate.",
+  "The CLI cannot open a GUI browser — use this MCP’s `web_fetch` / `web_search` from the orchestrator and pass results into `control_agent.prompt`.",
+  "Failures include `error_classification`, `cursor_stderr_message` (verbatim line when possible), and `hint` — not only a generic “unavailable”.",
+  "For live-ish progress, use `format: stream-json` and `stream: true`; parsed events are in `stream_json_events`.",
 ];
 
 const OPENCODE_NOTES = [
@@ -52,16 +56,24 @@ export function controlCapabilitiesPayload(): Record<string, unknown> {
     providers: controlProviderMeta(),
     cursor_agent_binary: cursorAgentBin(),
     session_ids: {
-      list_sessions:
-        "Opaque MCP id: source:base64url(JSON.stringify(disk chat row)).",
-      cursor_cli:
-        "Bare UUID from `control_create_session` / `agent create-chat`, used as session_id for control_run_agent --resume.",
+      disk:
+        "Opaque id from `sessions`: source:base64url(JSON of on-disk chat row).",
+      cli:
+        "Bare uuid from `control_chat_new`, `control_agent.auto_created_cli_chat_uuid`, or `agent create-chat` → pass as `resume` in `control_agent`.",
       bridge:
-        "Use control_cursor_cli_chat_from_session with a list_sessions id to read composerId when present.",
+        "`control_disk_to_cli` with a disk `id` reads composerId when present.",
+    },
+    session_stop: {
+      supported: false as const,
+      note:
+        "Neither Cursor nor OpenCode control tools can cancel an in-flight headless run via the CLI; use OS signals or wait. See provider notes for details.",
     },
     env: {
       POKE_AGENTS_CURSOR_AGENT_BIN: "Override path to `agent`",
       POKE_AGENTS_AGENT_TIMEOUT_MS: "Headless run timeout (default 600000)",
+      POKE_AGENTS_BRAVE_API_KEY:
+        "Optional — Brave Search for `web_search` (or use BRAVE_API_KEY)",
+      BRAVE_API_KEY: "Optional — alias for Brave Search API token",
     },
   };
 }

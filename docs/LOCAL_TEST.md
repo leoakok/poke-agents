@@ -74,6 +74,21 @@ When the HTTP server is up:
 
 For **`npm run dev:web`** with MCP elsewhere, set **`POKE_AGENTS_MCP_ORIGIN`** in `web/.env.local` (see `web/.env.example`).
 
+## MCP tools smoke tests
+
+After `npm run build` (or let the script build for you):
+
+```bash
+npm run test:smoke
+# same as: npm test
+```
+
+Uses the official MCP **in-memory transport** + `Client` to call every registered tool with safe arguments (OpenCode stubs, invalid ids, `web_fetch` to example.com). Does **not** run a real Cursor `agent -p` job.
+
+Tool names are asserted in `src/smoke/mcp-tools-smoke.test.ts` (`EXPECTED_MCP_TOOL_NAMES`).
+
+CI runs the same gates on **every PR and branch**; **`npm publish`** for `@leokok/poke-agents` runs only on **`main`** (see [`.github/workflows/ci-release.yml`](../.github/workflows/ci-release.yml)).
+
 ## Quick sanity check
 
 After `npm run build`:

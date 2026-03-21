@@ -104,6 +104,18 @@ if (!skipWeb && !existsSync(join(webDir, "package.json"))) {
   process.exit(1);
 }
 
+/** Avoid `npm run start`: on Ctrl+C npm prints a scary lifecycle error (code 130 = SIGINT). */
+function resolveNextCli() {
+  const candidates = [
+    join(webDir, "node_modules", "next", "dist", "bin", "next"),
+    join(root, "node_modules", "next", "dist", "bin", "next"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
 const children = [];
 let shuttingDown = false;
 
@@ -183,21 +195,37 @@ async function main() {
   await waitForPort(mcpPort, mcpHost, 45_000);
 
   if (!skipWeb) {
-    const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-    const web = spawn(
-      npm,
-      ["run", "start", "--", "-H", mcpHost, "-p", String(webPort)],
-      {
-        cwd: webDir,
-        stdio: "inherit",
-        env: {
-          ...process.env,
-          PORT: String(webPort),
-          /** Server-only: Next route handlers proxy /api/* here (dynamic per run). */
-          POKE_AGENTS_MCP_ORIGIN: mcpOrigin,
-        },
-      },
-    );
+    const nextCli = resolveNextCli();
+    const webEnv = {
+      ...process.env,
+      PORT: String(webPort),
+      /** Server-only: Next route handlers proxy /api/* here (dynamic per run). */
+      POKE_AGENTS_MCP_ORIGIN: mcpOrigin,
+    };
+    const web = nextCli
+      ? spawn(
+          process.execPath,
+          [nextCli, "start", "-H", mcpHost, "-p", String(webPort)],
+          {
+            cwd: webDir,
+            stdio: "inherit",
+            env: webEnv,
+          },
+        )
+      : spawn(
+          process.platform === "win32" ? "npm.cmd" : "npm",
+          ["run", "start", "--", "-H", mcpHost, "-p", String(webPort)],
+          {
+            cwd: webDir,
+            stdio: "inherit",
+            env: webEnv,
+          },
+        );
+    if (!nextCli) {
+      line(
+        "poke-agents: next CLI not found beside web/ or repo root — using npm run start (install deps from repo root).",
+      );
+    }
     children.push(web);
     web.on("error", (err) => {
       line(`poke-agents: Next.js error: ${err.message}`);

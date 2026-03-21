@@ -41,3 +41,7 @@ npm run start:poke
 ```
 
 Full source: [github.com/leoakok/poke-agents](https://github.com/leoakok/poke-agents).
+
+## Releases and versioning
+
+The **`@leokok/poke-agents`** version on npm is released from the **`main`** branch in that repo: CI runs on every branch/PR; **semantic-release** bumps this package’s `version`, tags, and publishes **only** when changes land on **`main`** (see repo root `release.config.cjs` and `docs/GITHUB_READINESS.md`). Commit messages should follow **Conventional Commits** (`fix:`, `feat:`, etc.) so semver is correct.

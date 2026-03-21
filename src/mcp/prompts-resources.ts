@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import {
+  RESOURCE_AGENT_STREAMING,
   RESOURCE_SESSION_IDS,
   RESOURCE_TOOLS_CONTROL,
   RESOURCE_TOOLS_READ,
@@ -12,7 +13,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerResource(
     "guide-tools-read",
     "poke-agents://guide/tools-read",
-    { mimeType: MIME, description: "Read-only tools: list connectors/sessions, load transcripts" },
+    { mimeType: MIME, description: "Read tools: adapters, sessions, transcript" },
     async () => ({
       contents: [
         {
@@ -27,7 +28,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerResource(
     "guide-tools-control",
     "poke-agents://guide/tools-control",
-    { mimeType: MIME, description: "CLI control tools: Cursor agent, session mapping" },
+    { mimeType: MIME, description: "CLI control: plan, agent, bridge" },
     async () => ({
       contents: [
         {
@@ -42,7 +43,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerResource(
     "guide-session-ids",
     "poke-agents://guide/session-ids",
-    { mimeType: MIME, description: "Disk MCP id vs Cursor CLI UUID" },
+    { mimeType: MIME, description: "Disk id vs CLI uuid" },
     async () => ({
       contents: [
         {
@@ -54,12 +55,30 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
     })
   );
 
+  mcp.registerResource(
+    "guide-agent-streaming",
+    "poke-agents://guide/agent-streaming",
+    {
+      mimeType: MIME,
+      description: "stream-json + stream_json_events for live-ish agent output",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: "poke-agents://guide/agent-streaming",
+          mimeType: MIME,
+          text: RESOURCE_AGENT_STREAMING,
+        },
+      ],
+    })
+  );
+
   mcp.registerPrompt(
     "getting_started",
     {
       title: "How to use this MCP",
       description:
-        "Orientation: read vs control tools, profile env, where docs live (resources + MCP_TOOLS.md).",
+        "Orientation: read vs control tools, profile env, resources + MCP_TOOLS.md.",
     },
     async () => ({
       messages: [
@@ -70,16 +89,21 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
             text: [
               "You have access to the **poke-agents** MCP server.",
               "",
-              "**Read path (disk):** `list_connectors` → `list_sessions` → `get_session`. Respects `POKE_AGENTS_EDITORS` (default cursor + opencode).",
+              "**Read path (disk):** `adapters` → `sessions` → `session` (param `id`). Respects `POKE_AGENTS_EDITORS`.",
               "",
-              "**Control path (CLI):** Only **provider=cursor** is implemented. Use `control_capabilities` first. Create CLI chats with `control_create_session`, run headless work with `control_run_agent` (`trust: true` recommended for unattended runs). Map disk sessions to CLI ids with `control_cursor_cli_chat_from_session` when possible.",
+              "**Control path (CLI):** Only **provider=cursor** is implemented. Call `control_plan` once for the contract. **`control_agent`** is **synchronous** (blocks until the CLI exits). **`control_agent_start`** returns immediately with **`run_id`** and runs `agent -p` in the background — poll **`control_run_status`** / **`control_run_output_slice`**, or use Poke HTTP MCP headers **`X-Poke-Callback-Url`** + **`X-Poke-Callback-Token`** (or tool args `poke_callback_url` / `poke_callback_token` on stdio) for a small completion ping. Same defaults as sync: **`auto_chat: true`**, **`trust: true`**, **`approve_mcp: true`**, **`sandbox: \"disabled\"`**. Pass **`sandbox: \"enabled\"`** only when you want isolation. For follow-ups, pass `resume` or `continue_chat`. Map disk rows with `control_disk_to_cli`.",
               "",
-              "**Docs as resources:** Fetch markdown via MCP resources:",
-              "- `poke-agents://guide/tools-read`",
-              "- `poke-agents://guide/tools-control`",
-              "- `poke-agents://guide/session-ids`",
+              "**Transparency:** On failure read `error_classification`, `cursor_stderr_message`, and full `stderr` — not just `hint`.",
               "",
-              "Prefer `structuredContent` from tool results; it matches each tool's outputSchema.",
+              "**Large transcripts:** Prefer `control_chat_slice`, `control_chat_tail`, or `control_chat_around` over loading the full `session` tool when threads are huge.",
+              "",
+              "**Streaming:** `control_agent` with `format: stream-json` and `stream: true` → `stream_json_events` for progressive CLI JSON lines. For async runs, pull stdout via `control_run_output_slice` and parse NDJSON locally. Resource: `poke-agents://guide/agent-streaming`.",
+              "",
+              "**Web:** You (the caller) use **`web_fetch`** / **`web_search`** on this MCP — do not expect the headless Cursor agent alone to “open a browser”. If a task needs a URL, fetch it here and pass excerpts into `control_agent.prompt`, or have the sub-agent use shell/tools after sandbox is off.",
+              "",
+              "**Resources:** `poke-agents://guide/tools-read`, `.../tools-control`, `.../session-ids`, `.../agent-streaming`.",
+              "",
+              "Prefer `structuredContent`; it matches each tool's outputSchema.",
               "",
               "What should we do next with the user's coding agents?",
             ].join("\n"),
@@ -93,13 +117,12 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
     "workflow_inspect_saved_chats",
     {
       title: "Inspect saved Cursor/OpenCode chats",
-      description:
-        "Step-by-step: filter by source, list sessions, open one transcript.",
+      description: "Adapters → list sessions → open transcript.",
       argsSchema: {
-        source: z
+        editor: z
           .string()
           .optional()
-          .describe("e.g. cursor, opencode — passed to list_sessions.source"),
+          .describe("Filter passed to sessions.editor (e.g. cursor, opencode)"),
         limit: z
           .number()
           .int()
@@ -109,7 +132,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
           .describe("Max sessions (default 50)"),
       },
     },
-    async ({ source, limit }) => ({
+    async ({ editor, limit }) => ({
       messages: [
         {
           role: "user",
@@ -118,12 +141,12 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
             text: [
               "Follow this workflow using poke-agents tools only:",
               "",
-              "1. Call `list_connectors` and confirm the target adapter is `available`.",
-              `2. Call \`list_sessions\` with source=${source ?? "(omit or user-specified)"} and limit=${limit ?? 50}.`,
-              "3. Pick a `sessions[].id` and call `get_session` with that exact `session_id`.",
+              "1. Call `adapters` and confirm the target row is `available`.",
+              `2. Call \`sessions\` with editor=${editor ?? "(omit)"} and limit=${limit ?? 50}.`,
+              "3. Pick `sessions[].id` and call `session` with that exact `id`.",
               "4. Summarize titles, recency, and key themes for the user.",
               "",
-              "If `get_session` returns ok:false, explain the error and suggest checking POKE_AGENTS_EDITORS.",
+              "If `session` returns ok:false, explain the error and suggest checking POKE_AGENTS_EDITORS.",
             ].join("\n"),
           },
         },
@@ -135,47 +158,40 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
     "workflow_cursor_headless_task",
     {
       title: "Run Cursor Agent headlessly",
-      description:
-        "Check CLI auth, optionally create/resume chat, run agent -p with trust.",
+      description: "Check CLI, then run agent -p with trust.",
       argsSchema: {
-        goal: z
-          .string()
-          .min(1)
-          .describe("What the agent should accomplish in one instruction"),
-        workspace: z
+        goal: z.string().min(1).describe("Single instruction for the agent"),
+        cwd: z.string().optional().describe("Absolute project path"),
+        resume_uuid: z
           .string()
           .optional()
-          .describe("Absolute project path for cwd"),
-        cli_chat_id: z
-          .string()
-          .optional()
-          .describe("UUID from control_create_session; omit for new context unless using --continue"),
+          .describe("CLI uuid from control_chat_new; omit unless resuming that chat"),
         use_continue: z
           .boolean()
           .optional()
-          .describe("If true, pass continue_session instead of session_id"),
+          .describe("If true, pass continue_chat: true instead of resume"),
       },
     },
-    async ({ goal, workspace, cli_chat_id, use_continue }) => ({
+    async ({ goal, cwd, resume_uuid, use_continue }) => ({
       messages: [
         {
           role: "user",
           content: {
             type: "text",
             text: [
-              "Run a **Cursor Agent** task via poke-agents control tools (provider=cursor).",
+              "Run a **Cursor Agent** task via poke-agents (`provider=cursor`).",
               "",
-              "1. Call `control_cli_status` to verify login (`about` / `status` text).",
+              "1. Call `control_agent_check` to verify login.",
               use_continue
-                ? "2. Call `control_run_agent` with provider=cursor, the user's goal as `prompt`, `continue_session: true`, `trust: true`, and `workspace` if given."
-                : cli_chat_id
-                  ? `2. Call \`control_run_agent\` with provider=cursor, \`session_id\`="${cli_chat_id}", \`prompt\` describing the goal, \`trust: true\`, optional \`workspace\`.`
-                  : "2. Optionally call `control_create_session` to obtain a `chat_id`, then `control_run_agent` with that `session_id`, `trust: true`, and the goal as `prompt`.",
+                ? "2. Prefer `control_agent_start` with prompt = goal, continue_chat: true, optional cwd (same defaults), then poll `control_run_status` until terminal, and use `control_run_output_slice` for stdout/stderr. Alternatively use blocking `control_agent` if you need `stream_json_events` in one response."
+                : resume_uuid
+                  ? `2. Prefer \`control_agent_start\` with resume="${resume_uuid}", prompt = goal, optional cwd; poll status + output slices. Or use blocking \`control_agent\` for a single-shot result.`
+                  : "2. Optionally `control_chat_new` for a uuid, then `control_agent_start` (or blocking `control_agent`) with that resume and the goal as prompt (same defaults).",
               "",
-              `Goal to execute: ${goal}`,
-              workspace ? `Workspace: ${workspace}` : "",
+              `Goal: ${goal}`,
+              cwd ? `cwd: ${cwd}` : "",
               "",
-              "3. Report exit_code, timed_out, and a short summary of stdout/stderr. Warn if ok is false.",
+              "3. Report final status (async: from `control_run_status` / callback; sync: from `control_agent` response), timed_out, and a short output summary via slices or stderr. Warn if the run failed.",
             ]
               .filter(Boolean)
               .join("\n"),
@@ -188,34 +204,30 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerPrompt(
     "workflow_bridge_disk_to_cli",
     {
-      title: "Resume CLI chat from a saved disk session",
-      description:
-        "Use control_cursor_cli_chat_from_session then control_run_agent.",
+      title: "Resume CLI from a saved disk session",
+      description: "control_disk_to_cli then control_agent.",
       argsSchema: {
-        list_sessions_id: z
+        disk_id: z
           .string()
           .min(1)
-          .describe("Exact id from list_sessions for a Cursor row"),
-        follow_up_prompt: z
-          .string()
-          .min(1)
-          .describe("What to tell the agent after resume"),
+          .describe("Exact sessions[].id for a Cursor row"),
+        follow_up_prompt: z.string().min(1),
       },
     },
-    async ({ list_sessions_id, follow_up_prompt }) => ({
+    async ({ disk_id, follow_up_prompt }) => ({
       messages: [
         {
           role: "user",
           content: {
             type: "text",
             text: [
-              "Bridge a **disk** Cursor session to the **CLI** and continue work.",
+              "Bridge disk → CLI for Cursor.",
               "",
-              `1. Call \`control_cursor_cli_chat_from_session\` with session_id=\`${list_sessions_id}\`.`,
-              "2. If `cli_chat_id` is non-null, call `control_run_agent` with provider=cursor, that value as `session_id`, `prompt` = the follow-up below, `trust: true`.",
-              "3. If `cli_chat_id` is null, explain that this row has no composerId; suggest `control_create_session` instead or inspect `row_keys`.",
+              `1. Call \`control_disk_to_cli\` with id=\`${disk_id}\`.`,
+              "2. If `uuid` is non-null, call `control_agent` with that `resume` and prompt = follow-up (defaults: trust + approve_mcp on, sandbox off).",
+              "3. If `uuid` is null, explain no composerId; suggest `control_chat_new` or inspect `keys`.",
               "",
-              `Follow-up prompt: ${follow_up_prompt}`,
+              `Follow-up: ${follow_up_prompt}`,
             ].join("\n"),
           },
         },

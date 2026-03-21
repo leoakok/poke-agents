@@ -12,14 +12,14 @@
 - **Attribution / license:** root **[`NOTICE`](../NOTICE)** (not repeated in other docs).
 - **CommonJS:** `vendor/session-editors/package.json` has `"type": "commonjs"` so `.js` adapters load under the parent package (`"type": "module"`).
 
-## Session identity (`session_id`)
+## Session identity (unified disk id)
 
 The vendored **`getMessages(chat)`** expects the **full chat object** from each adapter’s `getChats()`, not only a short id.
 
 - **`nativeId`** = `base64url(JSON.stringify(chat))` (see `chat-ref.ts`).
 - **Unified MCP id** = **`${chat.source}:${nativeId}`**
 
-`get_session` verifies the prefix **`source`** matches `chat.source` in the decoded payload.
+The `session` tool verifies the prefix **`source`** matches `chat.source` in the decoded payload.
 
 ## Connector registry
 
@@ -32,7 +32,7 @@ For each export in `vendor/session-editors/index.js`, we build one **`AgentConne
 | `listSessions` | `editor.getChats()` → `SessionSummary` |
 | `getMessages` | Decode payload → **`bundle.getMessages(chat)`** so variant `chat.source` values resolve correctly |
 
-Merged inbox **`listAllSessionsMerged`** calls **`getAllChats()`** and applies optional `source` / `project_path` filters. The `source` filter accepts either **`chat.source`** or the parent **`editor.name`** (e.g. `claude` matches rows whose source is `claude-code`).
+Merged inbox **`listAllSessionsMerged`** calls **`getAllChats()`** and applies optional `source` / `project_path` filters (MCP `sessions` tool exposes them as `editor` / `folder`). The `source` filter accepts either **`chat.source`** or the parent **`editor.name`** (e.g. `claude` matches rows whose source is `claude-code`).
 
 ## Dependencies
 

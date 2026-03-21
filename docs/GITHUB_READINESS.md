@@ -16,7 +16,7 @@ Use this when making the repo public or handing off maintenance. Check boxes as 
 
 ## Secrets and automation
 
-- [ ] **`NPM_TOKEN`** — [npm automation token](https://www.npmjs.com/settings/~/tokens) with publish access to **`@leokok/poke-agents`**, stored as a GitHub Actions **secret** on this repo.
+- [ ] **`NPM_TOKEN`** — [npm token](https://www.npmjs.com/settings/~/tokens) with **publish** access to **`@leokok/poke-agents`**, stored as a GitHub Actions **secret** (no extra spaces/newlines). Prefer a **granular** token scoped to that package, or a classic **Automation** token. If you use 2FA on npm, use token type / settings compatible with CI ([npm 2FA + automation](https://docs.npmjs.com/about-two-factor-authentication)); “Authorization and writes” classic tokens often break `npm publish` in CI.
 - [ ] **`GITHUB_TOKEN`** — default; release workflow uses **`contents: write`** for tags/releases and semantic-release’s version commit (no extra secret unless branch rules block the bot; then use a PAT).
 
 ## CI vs CD (what runs when)

@@ -49,6 +49,9 @@ jobs:
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       !github.event.repository.fork
+    env:
+      # setup-node + registry-url writes .npmrc; npm whoami must use the same token as semantic-release
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     permissions:
       contents: write
       issues: write
@@ -74,4 +77,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release

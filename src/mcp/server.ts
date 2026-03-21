@@ -7,9 +7,9 @@ import {
 } from "../connectors/registry.js";
 import { registerAgentTemplateTools } from "./agent-template-tools.js";
 import { registerControlTools } from "./control-tools.js";
+import { registerPokeAgentsGuideTool } from "./guide-tool.js";
 import { registerPokeAgentsPromptsAndResources } from "./prompts-resources.js";
 import { withMcpToolLogging } from "./tool-logging.js";
-import { registerWebTools } from "./web-tools.js";
 import { toolStructured } from "./tool-result.js";
 import {
   READ,
@@ -109,9 +109,10 @@ export function createPokeAgentsMcpServer(): McpServer {
     })
   );
 
+  registerPokeAgentsGuideTool(mcp);
+
   registerControlTools(mcp);
   registerAgentTemplateTools(mcp);
-  registerWebTools(mcp);
   registerPokeAgentsPromptsAndResources(mcp);
 
   return mcp;

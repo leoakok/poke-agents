@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-svh flex flex-col font-sans">
+    <html lang="en" className="h-full overflow-hidden antialiased">
+      <body className="flex h-full min-h-0 flex-col overflow-hidden font-sans">
         <Providers>
           <DashboardShell>{children}</DashboardShell>
         </Providers>

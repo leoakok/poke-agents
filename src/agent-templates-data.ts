@@ -16,7 +16,7 @@ export const BUILTIN_AGENT_TEMPLATES: AgentTemplateJson[] = [
     promptPreamble:
       "[Agent template: tester] You are a testing-focused agent. Prefer small, repeatable checks; cite files and commands; propose tests before large refactors.",
     pokeHint:
-      "Call `control_agent` with provider=cursor and a prompt that starts with the preamble above.",
+      "Prefer `control_agent` with `agent_template: \"tester\"` plus your task in `prompt`, or paste the preamble manually.",
   },
   {
     id: "reviewer",
@@ -26,7 +26,7 @@ export const BUILTIN_AGENT_TEMPLATES: AgentTemplateJson[] = [
     promptPreamble:
       "[Agent template: reviewer] You are a code review agent. Be concise: severity-tagged findings, no broad style nitpicks unless they block correctness.",
     pokeHint:
-      "Use disk `session` for context, then `control_agent` (defaults include trust + sandbox off). For URLs, `web_fetch` / `web_search` on poke-agents first, then pass excerpts in the prompt.",
+      "`control_agent` with `agent_template: \"reviewer\"` plus your ask; use disk `session` for context. For URLs/search, use Poke’s tools first, then pass excerpts in `prompt`.",
   },
   {
     id: "planner",
@@ -36,7 +36,7 @@ export const BUILTIN_AGENT_TEMPLATES: AgentTemplateJson[] = [
     promptPreamble:
       "[Agent template: planner] You are a planning agent. Output: goal, constraints, steps, risks, and what to verify first. Do not edit files unless asked.",
     pokeHint:
-      "Pair with `control_agent` mode=plan or plan=true when you only want a plan from Cursor CLI.",
+      "`control_agent` with `agent_template: \"planner\"`; when `POKE_AGENTS_CONTROL=cursor`, add `mode=plan` or `plan=true` for plan-only output.",
   },
 ];
 

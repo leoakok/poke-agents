@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-1 flex-col">
+    <div className="mx-auto flex min-h-0 w-full max-w-4xl min-w-0 flex-1 flex-col overflow-hidden">
       {children}
     </div>
   );

@@ -1,7 +1,10 @@
 import type { MessageRole, SessionMessage } from "./types.js";
 
 function normalizeRole(r: unknown): MessageRole {
-  if (r === "user" || r === "assistant" || r === "system") return r;
+  const s = typeof r === "string" ? r.trim().toLowerCase() : "";
+  if (s === "user") return "user";
+  if (s === "assistant") return "assistant";
+  if (s === "system") return "system";
   return "unknown";
 }
 

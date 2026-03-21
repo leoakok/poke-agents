@@ -127,7 +127,7 @@ export function LiveProcessesPanel() {
           </div>
         ) : (
           <>
-            <div className="max-h-[min(50vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border">
+            <div className="rounded-lg border">
               <div className="flex flex-col gap-2 p-2">
                 {liveRuntime.processes.map((p) => {
                   const isSel = selectedLivePid === p.pid;
@@ -262,7 +262,7 @@ export function LiveProcessesPanel() {
                       </dt>
                       <dd className="font-mono">{selectedLiveProcess.elapsed}</dd>
                     </dl>
-                    <pre className="font-mono max-h-40 overflow-y-auto break-words whitespace-pre-wrap rounded-md border bg-background p-2 text-xs">
+                    <pre className="bg-background font-mono break-words whitespace-pre-wrap rounded-md border p-2 text-xs">
                       {selectedLiveProcess.command}
                     </pre>
                   </>

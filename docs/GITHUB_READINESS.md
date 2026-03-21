@@ -46,7 +46,9 @@ Use this when making the repo public or handing off maintenance. Check boxes as 
 
 If **`@leokok/poke-agents`** on npm is already ahead of git tags, add a matching **`vX.Y.Z`** tag on `main` before relying on automated releases so semantic-release does not re-publish or mis-version. After that, routine releases need **no manual** version edits in `npm/poke-agents/package.json`.
 
-## Optional follow-ups
+## GitHub templates & local commit hooks
+
+Optional repository setup (independent of shipping poke-agents):
 
 - [ ] Issue / PR templates under `.github/ISSUE_TEMPLATE/`.
 - [ ] **commitlint** + **husky** to enforce conventional commits locally.

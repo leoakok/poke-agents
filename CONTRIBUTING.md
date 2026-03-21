@@ -5,10 +5,12 @@
 ```bash
 npm install
 npm run typecheck
+npm run lint
 npm test
 npm run build
 ```
 
+- **Lint** runs ESLint on the Next.js dashboard (`web/`).
 - **Smoke tests** exercise every MCP tool in-process ([`src/smoke/mcp-tools-smoke.test.ts`](src/smoke/mcp-tools-smoke.test.ts)).
 - **Full stack:** [`docs/LOCAL_TEST.md`](docs/LOCAL_TEST.md).
 

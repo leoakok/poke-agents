@@ -1,4 +1,4 @@
-export type ControlProviderId = "cursor" | "opencode";
+export type ControlProviderId = "cursor" | "opencode" | "codex";
 
 export interface SpawnResult {
   code: number | null;

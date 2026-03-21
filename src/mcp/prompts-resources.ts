@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import {
   RESOURCE_AGENT_STREAMING,
+  RESOURCE_GUIDE_TUNNEL,
   RESOURCE_SESSION_IDS,
   RESOURCE_TOOLS_CONTROL,
   RESOURCE_TOOLS_READ,
@@ -73,6 +74,24 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
     })
   );
 
+  mcp.registerResource(
+    "guide-http-tunnel",
+    "poke-agents://guide/http-tunnel",
+    {
+      mimeType: MIME,
+      description: "HTTP MCP, poke tunnel, proxy timeouts / 502",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: "poke-agents://guide/http-tunnel",
+          mimeType: MIME,
+          text: RESOURCE_GUIDE_TUNNEL,
+        },
+      ],
+    })
+  );
+
   mcp.registerPrompt(
     "getting_started",
     {
@@ -91,17 +110,21 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
               "",
               "**Read path (disk):** `adapters` → `sessions` → `session` (param `id`). Respects `POKE_AGENTS_EDITORS`.",
               "",
-              "**Control path (CLI):** Only **provider=cursor** is implemented. Call `control_plan` once for the contract. **`control_agent`** is **synchronous** (blocks until the CLI exits). **`control_agent_start`** returns immediately with **`run_id`** and runs `agent -p` in the background — poll **`control_run_status`** / **`control_run_output_slice`**, or use Poke HTTP MCP headers **`X-Poke-Callback-Url`** + **`X-Poke-Callback-Token`** (or tool args `poke_callback_url` / `poke_callback_token` on stdio) for a small completion ping. Same defaults as sync: **`auto_chat: true`**, **`trust: true`**, **`approve_mcp: true`**, **`sandbox: \"disabled\"`**. Pass **`sandbox: \"enabled\"`** only when you want isolation. For follow-ups, pass `resume` or `continue_chat`. Map disk rows with `control_disk_to_cli`.",
+              "**Control path (CLI):** No `provider` on tools — set **`POKE_AGENTS_CONTROL`** to **`cursor`** (default, Cursor `agent -p`), **`opencode`** (`opencode run`), or **`codex`** (`codex exec`). Call **`control_plan`** for `active_control`, binaries, and env. **`control_agent`** **always** returns immediately with **`run_id`**. Optional **`agent_template`**: set to a template **`id`** from **`agent_templates`** (`action: list`) to prepend that template's **`promptPreamble`** to **`prompt`**. Cursor: omit **`resume`** / **`continue_chat`** → **`create-chat`** then background run. OpenCode / Codex: omit both → new run; session/thread id is in JSON stdout and/or the Poke completion callback after the CLI exits. Prefer Poke **`X-Poke-Callback-Url`** + **`X-Poke-Callback-Token`** (or stdio `poke_callback_*`); poll **`control_run_status`** / **`control_run_output_slice`** as needed. Cursor defaults: **`trust`**, **`approve_mcp`**, **`sandbox: \"disabled\"`**. Codex: see `control_plan` for `sandbox`/`force` mapping. Map disk → resume id with **`control_disk_to_cli`**.",
               "",
-              "**Transparency:** On failure read `error_classification`, `cursor_stderr_message`, and full `stderr` — not just `hint`.",
+              "**Agent templates:** **`agent_templates`** MCP tool (`list` / `upsert` / `delete`) and dashboard **`/templates`**. Custom data lives in **`~/.poke-agents/agent-templates.json`** (optional **`POKE_AGENTS_TEMPLATES_PATH`**) — it survives **`npx`** and package upgrades.",
+              "",
+              "**Transparency:** On failure read `error_classification`, `cursor_stderr_message`, and captured stderr via `control_run_output_slice` after the run ends — not just `hint`.",
               "",
               "**Large transcripts:** Prefer `control_chat_slice`, `control_chat_tail`, or `control_chat_around` over loading the full `session` tool when threads are huge.",
               "",
-              "**Streaming:** `control_agent` with `format: stream-json` and `stream: true` → `stream_json_events` for progressive CLI JSON lines. For async runs, pull stdout via `control_run_output_slice` and parse NDJSON locally. Resource: `poke-agents://guide/agent-streaming`.",
+              "**HTTP / tunnel:** Each MCP tool call over HTTP must return before the client’s timeout. Proxies (e.g. poke tunnel) may return **502** if a handler is slow — **`control_agent` is not the culprit** (it returns immediately); watch **`session`** and **`control_session_meta` with count**. Resource: `poke-agents://guide/http-tunnel` or `poke_agents_guide` topic **`tunnel`**.",
               "",
-              "**Web:** You (the caller) use **`web_fetch`** / **`web_search`** on this MCP — do not expect the headless Cursor agent alone to “open a browser”. If a task needs a URL, fetch it here and pass excerpts into `control_agent.prompt`, or have the sub-agent use shell/tools after sandbox is off.",
+              "**Streaming:** `format: stream-json` and `stream: true` → NDJSON on captured stdout; use `control_run_output_slice` after completion or read `stream_json_event_count` on the Poke callback. Resource: `poke-agents://guide/agent-streaming`.",
               "",
-              "**Resources:** `poke-agents://guide/tools-read`, `.../tools-control`, `.../session-ids`, `.../agent-streaming`.",
+              "**HTTP / search:** Not on poke-agents — use **Poke’s** native fetch/search (or your orchestrator’s), then pass excerpts into **`control_agent.prompt`**. The headless Cursor CLI has no GUI browser; with sandbox off the agent may use shell or other MCPs.",
+              "",
+              "**Resources:** `poke-agents://guide/tools-read`, `.../tools-control`, `.../session-ids`, `.../agent-streaming`, `.../http-tunnel`. If the client cannot read resources/prompts, call **`poke_agents_guide`** (`topic`: `overview`, `control`, `tunnel`, `all`, …) for the same material as markdown in structured output.",
               "",
               "Prefer `structuredContent`; it matches each tool's outputSchema.",
               "",
@@ -157,41 +180,49 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerPrompt(
     "workflow_cursor_headless_task",
     {
-      title: "Run Cursor Agent headlessly",
-      description: "Check CLI, then run agent -p with trust.",
+      title: "Run headless agent (Cursor, OpenCode, or Codex)",
+      description: "Check CLI (active backend from POKE_AGENTS_CONTROL), then control_agent.",
       argsSchema: {
         goal: z.string().min(1).describe("Single instruction for the agent"),
         cwd: z.string().optional().describe("Absolute project path"),
+        agent_template: z
+          .string()
+          .optional()
+          .describe("Optional template id from agent_templates list (prepends promptPreamble)"),
         resume_uuid: z
           .string()
           .optional()
-          .describe("CLI uuid from control_chat_new; omit unless resuming that chat"),
+          .describe("CLI uuid from a prior control_agent resume_uuid; omit to start a new CLI chat"),
         use_continue: z
           .boolean()
           .optional()
           .describe("If true, pass continue_chat: true instead of resume"),
       },
     },
-    async ({ goal, cwd, resume_uuid, use_continue }) => ({
+    async ({ goal, cwd, agent_template, resume_uuid, use_continue }) => ({
       messages: [
         {
           role: "user",
           content: {
             type: "text",
             text: [
-              "Run a **Cursor Agent** task via poke-agents (`provider=cursor`).",
+              "Run a **headless agent** task via poke-agents. Active CLI: **`POKE_AGENTS_CONTROL`** (`cursor` = Cursor `agent`, `opencode` = `opencode run`, `codex` = `codex exec`).",
               "",
-              "1. Call `control_agent_check` to verify login.",
+              "1. Call `control_plan` if needed; call `control_agent_check` to verify the CLI.",
+              agent_template
+                ? `Optional: confirm template via \`agent_templates\` list — you will use agent_template: "${agent_template}".`
+                : "Optional: call `agent_templates` list if you want a persona via `agent_template` + `prompt`.",
               use_continue
-                ? "2. Prefer `control_agent_start` with prompt = goal, continue_chat: true, optional cwd (same defaults), then poll `control_run_status` until terminal, and use `control_run_output_slice` for stdout/stderr. Alternatively use blocking `control_agent` if you need `stream_json_events` in one response."
+                ? `2. Call \`control_agent\` with prompt = goal, continue_chat: true${agent_template ? `, agent_template: "${agent_template}"` : ""}, optional cwd. Wait for the Poke completion callback or poll \`control_run_status\`; use \`control_run_output_slice\` for stdout/stderr.`
                 : resume_uuid
-                  ? `2. Prefer \`control_agent_start\` with resume="${resume_uuid}", prompt = goal, optional cwd; poll status + output slices. Or use blocking \`control_agent\` for a single-shot result.`
-                  : "2. Optionally `control_chat_new` for a uuid, then `control_agent_start` (or blocking `control_agent`) with that resume and the goal as prompt (same defaults).",
+                  ? `2. Call \`control_agent\` with resume="${resume_uuid}", prompt = goal${agent_template ? `, agent_template: "${agent_template}"` : ""}, optional cwd; use callback or poll status + output slices.`
+                  : `2. Call \`control_agent\` with prompt = goal${agent_template ? `, agent_template: "${agent_template}"` : ""} (omit \`resume\` / \`continue_chat\` for a new CLI session); use callback or poll \`control_run_status\` + \`control_run_output_slice\`.`,
               "",
               `Goal: ${goal}`,
               cwd ? `cwd: ${cwd}` : "",
+              agent_template ? `agent_template: ${agent_template}` : "",
               "",
-              "3. Report final status (async: from `control_run_status` / callback; sync: from `control_agent` response), timed_out, and a short output summary via slices or stderr. Warn if the run failed.",
+              "3. Report final status from the Poke callback or `control_run_status`, timed_out, and a short output summary via slices or stderr. Warn if the run failed.",
             ]
               .filter(Boolean)
               .join("\n"),
@@ -210,7 +241,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
         disk_id: z
           .string()
           .min(1)
-          .describe("Exact sessions[].id for a Cursor row"),
+          .describe("Exact sessions[].id from sessions (any editor row with composerId)"),
         follow_up_prompt: z.string().min(1),
       },
     },
@@ -225,7 +256,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
               "",
               `1. Call \`control_disk_to_cli\` with id=\`${disk_id}\`.`,
               "2. If `uuid` is non-null, call `control_agent` with that `resume` and prompt = follow-up (defaults: trust + approve_mcp on, sandbox off).",
-              "3. If `uuid` is null, explain no composerId; suggest `control_chat_new` or inspect `keys`.",
+              "3. If `uuid` is null, explain no composerId; suggest `control_agent` without `resume` to start a new CLI chat, or inspect `keys`.",
               "",
               `Follow-up: ${follow_up_prompt}`,
             ].join("\n"),

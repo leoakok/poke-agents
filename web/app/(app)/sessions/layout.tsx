@@ -9,6 +9,8 @@ export const metadata: Metadata = {
 
 export default function SessionsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-6xl flex-1 flex-col">{children}</div>
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden">
+      {children}
+    </div>
   );
 }

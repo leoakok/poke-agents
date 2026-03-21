@@ -66,12 +66,24 @@ export function upsertCustomAgentTemplate(t: AgentTemplateJson): void {
 }
 
 export function deleteCustomAgentTemplate(id: string): { ok: true } | { ok: false; error: string } {
-  if (BUILTIN_TEMPLATE_IDS.has(id)) {
-    return { ok: false, error: `Cannot delete built-in template id: ${id}` };
+  const custom = readCustom();
+  const had = custom.some((x) => x.id === id);
+  if (!had) {
+    if (BUILTIN_TEMPLATE_IDS.has(id)) {
+      return {
+        ok: false,
+        error: `No custom row on disk for "${id}" (built-in default is unchanged).`,
+      };
+    }
+    return { ok: false, error: `Unknown template id: ${id}` };
   }
-  const custom = readCustom().filter((x) => x.id !== id);
-  writeCustom(custom);
+  writeCustom(custom.filter((x) => x.id !== id));
   return { ok: true };
+}
+
+/** Ids present in the custom JSON file (overrides + custom-only templates). */
+export function customTemplateIdsOnDisk(): Set<string> {
+  return new Set(readCustom().map((x) => x.id));
 }
 
 /** Replace entire custom list (dashboard save). Skips built-in-only rows. */
@@ -82,4 +94,17 @@ export function replaceCustomAgentTemplates(templates: AgentTemplateJson[]): voi
 
 export function agentTemplatesFileHint(): string {
   return storePath();
+}
+
+/** API/MCP rows: merged templates + `built_in` + `has_local_override` (custom JSON contains id). */
+export function mapTemplatesApiRows(): Array<
+  AgentTemplateJson & { built_in: boolean; has_local_override: boolean }
+> {
+  const merged = listAgentTemplatesMerged();
+  const customIds = customTemplateIdsOnDisk();
+  return merged.map((t) => ({
+    ...t,
+    built_in: BUILTIN_TEMPLATE_IDS.has(t.id),
+    has_local_override: customIds.has(t.id),
+  }));
 }

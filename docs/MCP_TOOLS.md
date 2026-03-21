@@ -7,7 +7,8 @@
 | Kind | Names / URIs |
 |------|--------------|
 | **Prompts** | `getting_started`, `workflow_inspect_saved_chats`, `workflow_cursor_headless_task`, `workflow_bridge_disk_to_cli` |
-| **Resources** | `poke-agents://guide/tools-read`, `.../tools-control`, `.../session-ids`, `.../agent-streaming` |
+| **Resources** | `poke-agents://guide/tools-read`, `.../tools-control`, `.../session-ids`, `.../agent-streaming`, `.../http-tunnel` |
+| **Tool (no resources?)** | **`poke_agents_guide`** — same guide text as structured `markdown`; `topic?`: `overview` (default), `read`, `control`, `session_ids`, `streaming`, `tunnel`, `templates`, `prompts`, `all` |
 
 **Repo skill:** [`../SKILL.md`](../SKILL.md).
 
@@ -21,20 +22,18 @@ Every tool returns **MCP `structuredContent`** validated against **`outputSchema
 
 | Tool | `ok` | Success fields | Error |
 |------|------|----------------|-------|
+| `poke_agents_guide` | always `true` | `topic`, `markdown`, `topics[]` | — |
 | `adapters` | always `true` | `connectors[]`, `editors[]` | — |
 | `sessions` | always `true` | `sessions[]` | — |
 | `session` | `true` / `false` | `session`, `messages` | `error` |
-| `web_fetch` | `true` / `false` | HTTP preview or `error`, `error_classification` | transport / timeout |
-| `web_search` | `true` / `false` | Brave `results[]` or `setup` when no API key | API / network |
+| `agent_templates` | `true` / `false` | `templates[]` (`built_in`, `has_local_override`), `built_in_ids[]`, `storage_path?` | upsert/delete validation |
 
 ### Control tools
 
 | Tool | `ok` | Notes |
 |------|------|--------|
-| `control_plan` | *(no top-level `ok`)* | `providers`, `cursor_agent_binary`, `session_ids`, `session_stop`, `env` |
-| `control_chat_new` | `true` / `false` | Success: `uuid`, `cwd`, `hint` |
-| `control_agent` | `true` / `false` | Cursor: **blocking** run; `exit_code`, `signal`, `timed_out`, `stdout`, `stderr`, `error_classification?`, `cursor_stderr_message?`, `hint?`, `stream_json_events?`, `auto_created_cli_chat_uuid?` |
-| `control_agent_start` | `true` / `false` | Immediate: `accepted`, `status` (`started` \| `failed_to_start`), `run_id?`, `callback_registered?`, `resume_uuid?`, …; background run — use `control_run_*` to pull output |
+| `control_plan` | *(no top-level `ok`)* | **`active_control`**, `providers`, `cursor_agent_binary`, `opencode_cli_binary`, `codex_cli_binary`, **`orchestration`**, `session_ids`, `session_stop`, `env` |
+| `control_agent` | `true` / `false` | **Async** — immediate `run_id` (etc.). Optional **`agent_template`** (`id` from `agent_templates`). Backend from **`POKE_AGENTS_CONTROL`**. No `provider` arg. Completion via Poke callback or `control_run_*` |
 | `control_run_status` | `true` / `false` | `run_id`, lifecycle `status`, `pid`, `exit_code`, `stdout_length` / `stderr_length`, `run_error?` |
 | `control_run_output_slice` | `true` / `false` | Window of captured `stdout` / `stderr` by char `offset` / `limit` |
 | `control_chat_slice` | `true` / `false` | Paginated disk transcript: `messages[]`, `offset`, `total_count`, `truncated` |
@@ -72,7 +71,7 @@ Default **`cursor,opencode`**. See [`SETUP_POKE_CURSOR_OPENCODE.md`](SETUP_POKE_
 
 **Returns:** `ok`, `sessions[]` (`id`, `source`, `title?`, `last_updated_at?`, `project_path?`).
 
-**HTTP:** `/api/sessions` accepts `editor`, `folder`, `limit` (legacy: `source`, `project_path`).
+**HTTP:** `/api/sessions` accepts `editor`, `folder`, `limit`.
 
 ---
 
@@ -84,49 +83,66 @@ Default **`cursor,opencode`**. See [`SETUP_POKE_CURSOR_OPENCODE.md`](SETUP_POKE_
 
 **Returns:** `ok`, `session?`, `messages?`, or `error`.
 
+**Orchestrators (HTTP MCP / tunnel):** Very large transcripts keep the MCP request open until the full thread is read — use **`control_chat_*`** for bounded windows if you see timeouts.
+
 **HTTP:** `/api/session?id=…`
 
 ---
 
-## Control plane — `provider: cursor | opencode`
+## Control plane — env `POKE_AGENTS_CONTROL`
 
-**Env:** `POKE_AGENTS_CURSOR_AGENT_BIN`, `POKE_AGENTS_AGENT_TIMEOUT_MS`, optional `POKE_AGENTS_BRAVE_API_KEY` or `BRAVE_API_KEY` for `web_search`.
+**`POKE_AGENTS_CONTROL`:** `cursor` (default), `opencode`, or `codex`. There is **no `provider` field** on control tools; switch backends only via this env and restart the MCP process if needed.
 
-### Id shapes (Cursor)
+**Env (see `control_plan.env`):** `POKE_AGENTS_CURSOR_AGENT_BIN`, `POKE_AGENTS_OPENCODE_BIN`, `POKE_AGENTS_CODEX_BIN`, `POKE_AGENTS_CODEX_SKIP_GIT`, `POKE_AGENTS_AGENT_TIMEOUT_MS`, `CURSOR_API_KEY` (Cursor CLI auth), `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST`, etc.
+
+### Id shapes
 
 | Kind | Use |
 |------|-----|
 | Disk | `sessions[].id` → `session`, `control_session_meta`, `control_disk_to_cli` |
-| CLI | `control_chat_new.uuid` or `control_agent` / `control_agent_start` `auto_created_cli_chat_uuid` → `resume` |
-| Run | `control_agent_start` → `run_id` → `control_run_status` / `control_run_output_slice` (not interchangeable with `resume`) |
+| Resume | **Cursor:** `resume_uuid` / `auto_created_cli_chat_uuid` → next `resume`. **OpenCode:** `ses_…` from JSON / callback / disk. **Codex:** thread uuid from JSONL `thread.started`, callback, or `control_disk_to_cli` |
+| Run | `control_agent` → `run_id` → `control_run_status` / `control_run_output_slice` (**not** the same as `resume`) |
 
-**Callbacks (Poke):** On HTTP MCP, send `X-Poke-Callback-Url` and `X-Poke-Callback-Token`; completion posts small JSON (`hasMore: false`). For stdio, pass `poke_callback_url` + `poke_callback_token` on `control_agent_start`.
+**Callbacks (Poke):** On HTTP MCP, send `X-Poke-Callback-Url` and `X-Poke-Callback-Token`; completion posts small JSON (`hasMore: false`). For stdio, pass `poke_callback_url` + `poke_callback_token` on `control_agent`.
 
 **Stopping runs:** not a CLI feature — see `control_plan.session_stop`.
 
 ### `control_plan`
 
-No parameters. Returns contract + `session_stop: { supported: false, note }`.
+**What it is:** A **read-only snapshot** — **`active_control`**, per-provider capabilities, id conventions, **environment variables**, `session_stop` (in-flight CLI runs are not stopped via MCP), and **`orchestration`** for HTTP/tunnel clients. It does **not** start agents, touch disk sessions, or call Poke.
 
-### `control_chat_new`
+No parameters. Returns contract + `session_stop: { supported: false, note }` + **`orchestration`** (`http_mcp_and_tunnel`, `control_agent`, `large_disk_transcripts`, `network_bound_tools`) so HTTP clients (e.g. poke tunnel) can align tool classification and avoid proxy **502** timeouts.
 
-`provider`, `cwd?` → `uuid` for `control_agent.resume`.
+### Poke callbacks — who calls whom
+
+| Direction | What happens |
+|-----------|----------------|
+| **Poke → poke-agents** | Poke sends each MCP `tools/call` over HTTP (or stdio). Poke **waits** on that request until poke-agents returns the tool result (or times out). **poke-agents does not block waiting for Poke** during a normal tool handler. |
+| **poke-agents → Poke** | After a **`control_agent`** background run **exits**, poke-agents **POSTs** JSON to **`X-Poke-Callback-Url`** with **`Authorization: Bearer`** `X-Poke-Callback-Token` (or the stdio `poke_callback_*` fields). That **outbound ping** tells Poke the run finished; large stdout/stderr stay on poke-agents for **`control_run_output_slice`**. |
+
+**No other tool** sends the Poke completion callback — only the **`control_agent`** run lifecycle does (when URL+token were provided at start).
+
+### `agent_templates`
+
+`action`: **`list`** \| **`upsert`** \| **`delete`**. Custom JSON: **`~/.poke-agents/agent-templates.json`** (or **`POKE_AGENTS_TEMPLATES_PATH`**). **`upsert`** with a built-in `id` stores an **override**; **`delete`** on that `id` removes the override. See [`AGENT_TEMPLATES.md`](AGENT_TEMPLATES.md).
 
 ### `control_agent`
 
-`provider`, `prompt`, `cwd?`, `resume?`, `continue_chat?`, `auto_chat?` (default **true** — runs `create-chat` when `resume` and `continue_chat` are both unset), `format?`, `stream?`, `model?`, `mode?`, `plan?`, `trust?` (default **true**), `force?`, `approve_mcp?` (default **true**), `sandbox?` (default **`disabled`** — avoids Cursor’s network-blocking sandbox; use **`enabled`** to isolate), `cloud?`
+`prompt`, optional **`agent_template`** (template `id` — prepends `promptPreamble`), `cwd?`, `workspace?`, `resume?`, `continue_chat?`, `format?`, `stream?`, `model?`, `mode?`, `plan?`, `trust?`, `force?`, `approve_mcp?`, `sandbox?`, `cloud?`, optional `poke_callback_url` / `poke_callback_token` (stdio). Behavior depends on **`POKE_AGENTS_CONTROL`**. On success with a template, response includes **`agent_template`** and **`agent_template_title`**.
 
-On failure, prefer `cursor_stderr_message` + `error_classification` over guessing from `[unavailable]`. With `format: stream-json` and `stream: true`, use `stream_json_events` for parsed NDJSON lines.
+**Cursor (`cursor`):** Defaults: **`trust: true`**, **`approve_mcp: true`**, **`sandbox: "disabled"`** (avoids network-blocking sandbox; use **`enabled`** to isolate). **New session:** omit `resume` and `continue_chat` → `agent create-chat` (with `--trust` unless `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST=0`), then background `agent -p`; immediate `run_id`. **Continue:** `resume` = prior `resume_uuid` / `auto_created_cli_chat_uuid`, or `continue_chat: true` → `--continue`. `workspace` → `--workspace` (resolved vs `cwd`). Mapping: `format` → `--output-format`; `stream` → `--stream-partial-output` (with `stream-json`); `trust`, `force`, `approve_mcp`, `sandbox`, `model`, `mode`, `plan`, `cloud` as documented in `control_plan`. **`CURSOR_API_KEY`** is env-only.
 
-**Web:** The headless agent has no GUI browser. For HTTP/search, the **caller** uses `web_fetch` / `web_search` on this MCP and feeds excerpts into the next `control_agent` prompt.
+**OpenCode (`opencode`):** **New session:** omit `resume` / `continue_chat` → `opencode run` in the background. **Continue:** pass the OpenCode session id (`ses_…`) as `resume`. `format` `json` / `stream-json` → `--format json` for machine-readable stdout. Cursor-only fields (`trust`, `plan`, `stream`, etc.) are ignored when the backend is OpenCode; see `control_plan.providers`.
 
-### `control_agent_start`
+**Codex (`codex`):** **New session:** omit `resume` / `continue_chat` → `codex exec` in the background. **Continue:** pass thread uuid as `resume` → `codex exec resume <uuid> <prompt>`. **`continue_chat`** without `resume` → `codex exec resume --last <prompt>`. `format` `json` / `stream-json` → `--json` (JSONL; `thread.started` → `thread_id`). **`force: true`** → `--dangerously-bypass-approvals-and-sandbox`. Default **`sandbox: "disabled"`** adds `--full-auto`; **`sandbox: "enabled"`** omits `--full-auto` / bypass. **`model`** → `-m`. **`POKE_AGENTS_CODEX_SKIP_GIT=1`** → `--skip-git-repo-check`. See `control_plan.providers`.
 
-Same parameters as `control_agent`, plus optional `poke_callback_url` / `poke_callback_token` when not using HTTP callback headers. Returns immediately with `run_id` (or `failed_to_start`). Does **not** return full stdout/stderr or `stream_json_events` — pull via `control_run_output_slice`.
+On failure to start, use `error_classification`, `cursor_stderr_message` (name kept for Poke compatibility), and `hint`. After completion, `control_run_output_slice`. **`control_run_status`** includes **`backend`**: `cursor` \| `opencode` \| `codex`.
+
+**HTTP / search:** Not exposed on this MCP — use **Poke’s** (or your orchestrator’s) tools, then pass text into `control_agent.prompt`.
 
 ### `control_run_status` / `control_run_output_slice`
 
-`run_id` from `control_agent_start`. Output slice: `stream` (`stdout` \| `stderr`), `offset`, `limit`, `text`, `next_offset`, `truncated`.
+`run_id` from `control_agent`. `control_run_status` returns **`backend`** (`cursor` \| `opencode` \| `codex`). Output slice: `stream` (`stdout` \| `stderr`), `offset`, `limit`, `text`, `next_offset`, `truncated`.
 
 ### `control_chat_slice` / `control_chat_tail` / `control_chat_around`
 
@@ -134,51 +150,18 @@ Same parameters as `control_agent`, plus optional `poke_callback_url` / `poke_ca
 
 ### `control_agent_check`
 
-`provider`, `cwd?`
+`cwd?` only — probes the active backend from **`POKE_AGENTS_CONTROL`**.
 
 ### `control_session_meta`
 
-`provider`, `id`, `count?` (if true, loads transcript to count messages)
+`id`, `count?` (if true, loads transcript to count messages). Works for any disk session row the adapters expose.
 
 ### `control_disk_to_cli`
 
-`id` (disk Cursor row) → `uuid` nullable, `keys`
+`id` (disk session) → `uuid` nullable (same value as stored `composerId` — pass as `resume` when non-null), `keys`, `hint`
 
 ---
 
-## Web tools
+## Notes
 
-### `web_fetch`
-
-`url`, `max_bytes?`, `timeout_ms?` — GET with `ok`, `status`, `body_preview`, or `error` + `error_classification` (`timeout`, `network_tls`, `network_unreachable`, …).
-
-### `web_search`
-
-`query`, `count?` — Brave Search API. Requires `POKE_AGENTS_BRAVE_API_KEY` or `BRAVE_API_KEY`. Returns `results[]` with `title`, `url`, `description` or structured setup instructions if the key is missing.
-
----
-
-## Migration from 0.1.x
-
-| Old | New |
-|-----|-----|
-| `list_connectors` | `adapters` |
-| `list_sessions` (+ `source`, `project_path`) | `sessions` (+ `editor`, `folder`) |
-| `get_session` (+ `session_id`) | `session` (+ `id`) |
-| `profile_editors` / `list_connectors` output | `adapters.editors` |
-| `control_capabilities` | `control_plan` |
-| `control_create_session` (+ `workspace`) | `control_chat_new` (+ `cwd`) |
-| `control_run_agent` | `control_agent` |
-| `session_id` / `continue_session` / `output_format` / `stream_partial_output` / `approve_mcps` / `workspace` | `resume` / `continue_chat` / `format` / `stream` / `approve_mcp` / `cwd` |
-| `chat_id` (create output) | `uuid` |
-| `control_cli_status` | `control_agent_check` |
-| `control_session_status` (+ `session_id`, `include_message_count`) | `control_session_meta` (+ `id`, `count`) |
-| `control_stop_session` | *(removed — use `control_plan.session_stop`)* |
-| `control_cursor_cli_chat_from_session` | `control_disk_to_cli` |
-| `cli_chat_id`, `row_keys` (bridge) | `uuid`, `keys` |
-
----
-
-## Future
-
-- OpenCode CLI parity on control tools.
+- **Breaking vs older clients:** control tools no longer accept a `provider` argument; use **`POKE_AGENTS_CONTROL`**. Responses that previously said `provider` for the active run may use **`backend`** instead (see each tool’s `outputSchema`).

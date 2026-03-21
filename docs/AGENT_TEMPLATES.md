@@ -2,15 +2,29 @@
 
 **Built-in** personas (`tester`, `reviewer`, `planner`) ship in `src/agent-templates-data.ts`.
 
-**Custom** templates are stored in `~/.poke-agents/agent-templates.json` (override with `POKE_AGENTS_TEMPLATES_PATH`). Custom rows **override** a built-in if they share the same `id`.
+**Custom** templates and **overrides** live in **`~/.poke-agents/agent-templates.json`** (override path with **`POKE_AGENTS_TEMPLATES_PATH`**). This file is under your home directory — it is **not** removed when you run `npx`, upgrade the package, or pull a new repo version.
 
-## Dashboard
+- **Custom-only** `id` → new persona.
+- **Same `id` as a built-in** → your row **replaces** the built-in in the merged list (on-disk override).
+- **`delete`** removes a row from that JSON. For a built-in `id`, delete **clears your override** and the shipped default shows again.
 
-The home page loads the **merged** list from `GET /api/agent-templates` (proxied by Next to the poke-agents HTTP server). Use **New template** / **Edit** / **Delete** for custom rows; built-ins cannot be deleted from disk from the UI.
+## `control_agent.agent_template`
+
+Optional MCP field: set **`agent_template`** to a template **`id`** from **`agent_templates`** (`action: "list"`). The server prepends that template’s **`promptPreamble`** to **`prompt`** (blank line between), then runs the headless CLI.
+
+Successful responses echo **`agent_template`** and **`agent_template_title`** when a template was applied. Unknown ids fail fast with `failed_to_start` and an error message.
+
+## Dashboard (`/templates`)
+
+- **New template** — new `id` on disk.
+- **Customize** (built-in) — opens the merged row; **Save** writes an override with the same `id`.
+- **Reset** (built-in + overridden) or **Delete** (custom) — removes the row from `agent-templates.json`.
+
+Each row shows **`has_local_override`** when that `id` exists in the JSON file.
 
 ## Poke and automation
 
-- **HTTP:** `POST /api/agent-templates` with `upsert`, `delete_id`, or `replace_custom[]` (same shapes as the dashboard client).
-- **MCP:** tool **`agent_templates`** with `action`: `list` | `upsert` | `delete`.
+- **HTTP:** `GET /api/agent-templates`, `POST /api/agent-templates` with `upsert`, `delete_id`, or `replace_custom[]` (same shapes as the dashboard client).
+- **MCP:** **`agent_templates`** with `action`: `list` | `upsert` | `delete`.
 
-Reference templates in prompts as **`template:{id}`** and copy or prepend the **prompt preamble** into `control_agent` (or Composer) prompts.
+Reference in docs as **`template:{id}`** only for human readers; the machine field on **`control_agent`** is **`agent_template`**.

@@ -44,6 +44,8 @@ Implemented under `src/mcp/`: **stdio** (default) for editor MCP clients; **`--h
 
 ## Control plane (`src/control/`)
 
-- **Cursor:** spawn the **`agent`** CLI ([docs](https://cursor.com/docs/cli/overview)) for `create-chat`, headless `-p` runs, and `about` / `status`.
-- **OpenCode:** same **tool names** and `provider` argument; handlers return “not implemented” until a CLI surface is added.
+- **Backend selection:** **`POKE_AGENTS_CONTROL`** (`cursor` default \| `opencode` \| `codex`). Control MCP tools do **not** take a `provider` parameter.
+- **Cursor:** spawn **`agent`** ([docs](https://cursor.com/docs/cli/overview)) — `create-chat`, headless `-p`, `about` / `status`.
+- **OpenCode:** spawn **`opencode run`** (JSON / stream-json), version/auth checks for `control_agent_check`.
+- **Codex:** spawn **`codex exec`** / **`codex exec resume`** ([docs](https://developers.openai.com/codex)), `--version` + **`codex login status`** for `control_agent_check`.
 - **Session status** combines disk decode (same encoding as read tools) with optional full message count.

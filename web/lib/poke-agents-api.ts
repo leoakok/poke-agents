@@ -4,9 +4,7 @@
  * - On the server: direct MCP origin from env (dev / SSR).
  */
 export function getMcpUpstreamBase(): string {
-  const fromServer = process.env.POKE_AGENTS_MCP_ORIGIN?.replace(/\/$/, "");
-  const legacy = process.env.NEXT_PUBLIC_POKE_AGENTS_ORIGIN?.replace(/\/$/, "");
-  return fromServer || legacy || "";
+  return process.env.POKE_AGENTS_MCP_ORIGIN?.replace(/\/$/, "") || "";
 }
 
 /** Empty string = same-origin (browser uses Next proxy). */
@@ -91,6 +89,8 @@ export type AgentTemplateRow = {
   promptPreamble: string;
   pokeHint: string;
   built_in?: boolean;
+  /** True when this id is stored in ~/.poke-agents/agent-templates.json (custom-only or override). */
+  has_local_override?: boolean;
 };
 
 export type AgentTemplatesListResponse =

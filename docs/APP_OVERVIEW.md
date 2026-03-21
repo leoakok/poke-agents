@@ -4,7 +4,7 @@ This document is the fastest way for a new Cursor session (or engineer) to under
 
 ## 1) What this app is
 
-`poke-agents` is a local-first **MCP server + HTTP API + dashboard** for working with coding-agent session data and running headless Cursor CLI tasks.
+`poke-agents` is a local-first **MCP server + HTTP API + dashboard** for coding-agent session data and **headless CLI runs** (Cursor `agent`, OpenCode `opencode run`, or Codex `codex exec`, selected by **`POKE_AGENTS_CONTROL`**).
 
 It has three layers:
 
@@ -24,39 +24,28 @@ It is a **data + control plane**, not a full autonomous orchestrator runtime.
 
 Backed by vendored editor readers under `vendor/session-editors/`.
 
-### B. Web helpers (orchestrator tools)
+### B. Headless CLI control (control path)
 
-- `web_fetch`: robust HTTP GET with clear error classification
-- `web_search`: Brave Search API lookup (requires API key)
+Backend: **`POKE_AGENTS_CONTROL`** = `cursor` (default), `opencode`, or `codex`. Control tools have **no `provider` argument**.
 
-Important: for headless Cursor runs, use these tools from the orchestrator side when browser-like access is needed.
+- `control_plan`: read-only contract (`active_control`, binaries, `orchestration`); does not run agents
+- `control_agent`: **async** — immediate `run_id`; Cursor: omit `resume`/`continue_chat` → `create-chat` then `agent -p`; OpenCode: omit both → `opencode run`; Codex: omit both → `codex exec`; optional Poke callback
+- `control_agent_check`: probes the active backend (Cursor `about`/`status`, OpenCode version/auth, Codex version/`login status`)
+- `control_session_meta`: disk session metadata (+ optional count)
+- `control_disk_to_cli`: disk `sessions[].id` → `uuid` for `resume` when present
 
-### C. Cursor CLI control (control path)
+**Cursor-only defaults** (ignored or N/A for OpenCode): `trust: true`, `approve_mcp: true`, `sandbox: "disabled"`.
 
-- `control_plan`: provider feature/contract metadata
-- `control_chat_new`: create empty Cursor chat UUID
-- `control_agent`: run headless `agent -p` tasks
-- `control_agent_check`: `agent about` + `agent status`
-- `control_session_meta`: decode session metadata (+ optional count)
-- `control_disk_to_cli`: map disk session id -> Cursor CLI resume UUID
-
-Defaults for `control_agent` are tuned for unattended runs:
-
-- `auto_chat: true`
-- `trust: true`
-- `approve_mcp: true`
-- `sandbox: "disabled"` (to avoid network-restricted sandbox behavior)
-
-### D. Agent templates
+### C. Agent templates
 
 - Built-in templates: `tester`, `reviewer`, `planner`
 - Custom templates persisted in `~/.poke-agents/agent-templates.json`
 - Managed via MCP tool `agent_templates`
 - Shown/edited in dashboard `/templates`
 
-### E. Live runtime visibility + stop
+### D. Live runtime visibility + stop
 
-- Process scan for active CLI `agent` runs
+- Process scan heuristics target **Cursor** `agent` CLI patterns (OpenCode/Codex processes may not appear)
 - Snapshot endpoint + SSE stream for refresh
 - Optional stop endpoint sends `SIGINT` to matching PID
 - Dashboard marks sessions that are currently tied to live CLI processes
@@ -74,7 +63,6 @@ Routes:
 
 Behavior highlights:
 
-- Legacy `/?s=<id>` redirects to `/chat?s=<id>` via `proxy.ts`
 - Sidebar shows session list on `/sessions`, `/chat`, and `/live`
 - “Running (CLI)” sessions are visually highlighted
 - Archive/unarchive state is persisted in browser storage
@@ -86,16 +74,18 @@ There are two different IDs:
 
 1. **Disk session id** (`sessions[].id`)
    - Opaque token used for `session`, `control_session_meta`, etc.
-2. **Cursor CLI UUID**
-   - Used by `control_agent.resume` / `agent --resume`
+2. **Resume id** (native CLI session)
+   - **Cursor:** uuid for `control_agent.resume` / `agent --resume`
+   - **OpenCode:** `ses_…` from prior `control_agent` / callback / JSON stdout, or `control_disk_to_cli.uuid`
+   - **Codex:** thread uuid from JSONL `thread.started`, callback, or `control_disk_to_cli.uuid`
 
-Use `control_disk_to_cli` to bridge from disk session id to CLI resume UUID when possible.
+Use `control_disk_to_cli` to bridge disk → resume id when the row has a `composerId`.
 
 ## 5) Architecture map
 
 - `src/mcp/*` - MCP tool registration, schemas, prompts/resources
 - `src/http/*` - HTTP API routes and live runtime endpoints
-- `src/control/*` - Cursor CLI spawn, classify, capability metadata
+- `src/control/*` - headless CLI spawn (Cursor, OpenCode, Codex), classify, capability metadata
 - `src/connectors/*` - merged adapter/session access
 - `src/agent-templates-*.ts` - built-in + stored template logic
 - `web/*` - Next.js dashboard + same-origin `/api/*` proxies
@@ -143,9 +133,9 @@ This project exposes guidance to MCP clients in three ways:
 ## 8) What this app does **not** do
 
 - It does not run a full multi-agent orchestration engine internally.
-- OpenCode control-path parity is not implemented yet (read-path works).
+- Live process scan is biased toward Cursor `agent` heuristics; OpenCode/Codex may not show up in `/live`.
 - It cannot stop every arbitrary in-flight agent run via provider-native CLI primitives.
-- Headless Cursor CLI has no GUI browser; orchestrator should use `web_fetch` / `web_search`.
+- Headless Cursor CLI has no GUI browser; orchestrator (Poke) should fetch URLs / search with **its own** tools, then pass text into `control_agent.prompt`.
 
 ## 9) Troubleshooting checklist
 
@@ -154,9 +144,9 @@ This project exposes guidance to MCP clients in three ways:
    - Run `adapters` and confirm connector `available`
 2. **`control_agent` fails unexpectedly**
    - Inspect `error_classification`, `cursor_stderr_message`, full `stderr`
-   - Run `control_agent_check` in the same cwd
+   - Run `control_agent_check` (same `cwd` if you set one on `control_agent`)
 3. **Need web context**
-   - Use `web_fetch` / `web_search` first, then pass result excerpts into `control_agent.prompt`
+   - Use Poke’s (or your orchestrator’s) fetch/search, then pass result excerpts into `control_agent.prompt`
 4. **Live processes missing**
    - Confirm process actually contains agent CLI markers (`agent`, `--resume`, etc.)
    - Check same-user process visibility permissions

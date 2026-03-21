@@ -3,7 +3,7 @@ import { BUILTIN_TEMPLATE_IDS } from "../agent-templates-data.js";
 import {
   agentTemplatesFileHint,
   deleteCustomAgentTemplate,
-  listAgentTemplatesMerged,
+  mapTemplatesApiRows,
   upsertCustomAgentTemplate,
 } from "../agent-templates-store.js";
 import { toolStructured } from "./tool-result.js";
@@ -26,15 +26,11 @@ export function registerAgentTemplateTools(mcp: McpServer): void {
     withMcpToolLogging("agent_templates", async (args) => {
       const path = agentTemplatesFileHint();
       if (args.action === "list") {
-        const merged = listAgentTemplatesMerged();
         return toolStructured({
           ok: true,
           storage_path: path,
           built_in_ids: [...BUILTIN_TEMPLATE_IDS],
-          templates: merged.map((t) => ({
-            ...t,
-            built_in: BUILTIN_TEMPLATE_IDS.has(t.id),
-          })),
+          templates: mapTemplatesApiRows(),
         });
       }
       if (args.action === "upsert") {
@@ -52,14 +48,11 @@ export function registerAgentTemplateTools(mcp: McpServer): void {
           promptPreamble: t.promptPreamble,
           pokeHint: t.pokeHint,
         });
-        const merged = listAgentTemplatesMerged();
         return toolStructured({
           ok: true,
           storage_path: path,
-          templates: merged.map((x) => ({
-            ...x,
-            built_in: BUILTIN_TEMPLATE_IDS.has(x.id),
-          })),
+          built_in_ids: [...BUILTIN_TEMPLATE_IDS],
+          templates: mapTemplatesApiRows(),
         });
       }
       if (args.action === "delete") {
@@ -74,14 +67,11 @@ export function registerAgentTemplateTools(mcp: McpServer): void {
         if (!r.ok) {
           return toolStructured({ ok: false, error: r.error });
         }
-        const merged = listAgentTemplatesMerged();
         return toolStructured({
           ok: true,
           storage_path: path,
-          templates: merged.map((x) => ({
-            ...x,
-            built_in: BUILTIN_TEMPLATE_IDS.has(x.id),
-          })),
+          built_in_ids: [...BUILTIN_TEMPLATE_IDS],
+          templates: mapTemplatesApiRows(),
         });
       }
       return toolStructured({ ok: false, error: "Unknown action" });

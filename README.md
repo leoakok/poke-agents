@@ -20,12 +20,13 @@ The npm scope is **`@leokok`** (launcher only). This repo’s package name remai
 cd agents   # repo root if this repo is only poke-agents
 npm install
 npm run build
-npm test              # optional: MCP in-process smoke (every tool)
+npm test              # MCP in-process smoke (every tool)
+npm run lint          # dashboard ESLint (web/)
 npm run start:poke
 ```
 
 - **MCP:** `http://127.0.0.1:8740/mcp` by default; if that port (or the dashboard port) is busy, the next free port is used. Set **`POKE_AGENTS_STRICT_PORTS=1`** to require exact ports instead.
-- **Dashboard:** `http://127.0.0.1:3000` by default (`POKE_AGENTS_WEB_PORT`). The UI calls **`/api/*`** on the dashboard origin and Next proxies to the real MCP URL (`POKE_AGENTS_MCP_ORIGIN` at runtime), so the page stays in sync when ports shift. Routes: **`/`** overview, **`/sessions`** (list), **`/chat?s=`** (full-page transcript), **`/live`**, **`/templates`**, **`/settings`**. Legacy **`/?s=`** redirects to **`/chat?s=`**.
+- **Dashboard:** `http://127.0.0.1:3000` by default (`POKE_AGENTS_WEB_PORT`). The UI calls **`/api/*`** on the dashboard origin and Next proxies to the real MCP URL (`POKE_AGENTS_MCP_ORIGIN` at runtime), so the page stays in sync when ports shift. Routes: **`/`** overview, **`/sessions`** (list), **`/chat?s=`** (full-page transcript), **`/live`**, **`/templates`**, **`/settings`**.
 - Stops tunnel only: `POKE_AGENTS_SKIP_TUNNEL=1 npm run start:poke`
 - MCP only (no Next): `POKE_AGENTS_SKIP_WEB=1 npm run start:poke`
 
@@ -77,9 +78,9 @@ Editor wiring: [`docs/SETUP_POKE_CURSOR_OPENCODE.md`](docs/SETUP_POKE_CURSOR_OPE
 
 **Read (disk):** `adapters`, `sessions`, `session`.
 
-**Web:** `web_fetch` (GET + clear errors), `web_search` (Brave — set `POKE_AGENTS_BRAVE_API_KEY` or `BRAVE_API_KEY`).
+**Templates:** `agent_templates` (list / upsert / delete; **`~/.poke-agents/agent-templates.json`**, optional **`POKE_AGENTS_TEMPLATES_PATH`**). Optional **`control_agent.agent_template`** = template id. UI: **`/templates`**. See [`docs/AGENT_TEMPLATES.md`](docs/AGENT_TEMPLATES.md).
 
-**Control (CLI):** `control_plan`, `control_chat_new`, `control_agent` (blocking) / **`control_agent_start`** (async `run_id` + `control_run_status` / `control_run_output_slice`; optional Poke callback headers or tool args), `control_agent_check`, `control_session_meta`, `control_disk_to_cli`, **`control_chat_slice`** / **`control_chat_tail`** / **`control_chat_around`** for large disk transcripts. Cursor is fully wired via the `agent` binary; OpenCode control is stubbed with the same tool shapes. In-flight runs cannot be stopped via CLI — see `control_plan.session_stop`. For URLs, use **`web_fetch` / `web_search`** from the orchestrator, not the GUI browser.
+**Control (CLI):** `control_plan` (**`active_control`**, **`orchestration`**, binaries), **`control_agent`** (always async; backend from **`POKE_AGENTS_CONTROL`**: `cursor` = `agent -p`, `opencode` = `opencode run`, `codex` = `codex exec`; no `provider` arg), Poke callbacks / `control_run_*`, `control_agent_check`, `control_session_meta`, `control_disk_to_cli`, **`control_chat_*`**. In-flight runs are not cancellable via MCP — see `control_plan.session_stop`. **HTTP/search:** use **Poke’s** tools. Tunnel **502** hints: **`poke_agents_guide`** topic **`tunnel`** or `docs/ORCHESTRATION.md`.
 
 Details: [`docs/MCP_TOOLS.md`](docs/MCP_TOOLS.md).
 

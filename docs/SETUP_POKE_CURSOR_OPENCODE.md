@@ -74,6 +74,20 @@ poke tunnel http://127.0.0.1:8740/mcp -n "Poke agents"
 
 Use the same `POKE_AGENTS_EDITORS` in the environment if you start the HTTP process manually.
 
+## Headless control backend (`POKE_AGENTS_CONTROL`)
+
+Read tools (`sessions`, `session`) follow **`POKE_AGENTS_EDITORS`**. **Control** tools (`control_agent`, etc.) follow **`POKE_AGENTS_CONTROL`** — no `provider` field on MCP tools.
+
+| Value | Headless CLI |
+|--------|----------------|
+| `cursor` | Default. Cursor `agent` (`create-chat` + `-p`). |
+| `opencode` | `opencode run` |
+| `codex` | `codex exec` (OpenAI Codex CLI, e.g. `npm i -g @openai/codex`) |
+
+Optional: **`POKE_AGENTS_OPENCODE_BIN`** / **`POKE_AGENTS_CODEX_BIN`** — absolute paths if the executables are not on `PATH`. **`POKE_AGENTS_CODEX_SKIP_GIT=1`** adds `--skip-git-repo-check` for non-git project dirs.
+
+Set these in the same `env` / `environment` block as `POKE_AGENTS_EDITORS` for stdio MCP, or export them before `node ./dist/mcp/run.js --http`.
+
 ## 5. Tools exposed
 
 | Tool | Purpose |

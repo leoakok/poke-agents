@@ -1,17 +1,21 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { controlCapabilitiesPayload } from "../control/provider-meta.js";
+import { resolveControlBackend } from "../control/control-backend.js";
 import {
   cursorAgentAbout,
   cursorAgentStatusText,
   cursorAgentBin,
-  cursorCreateEmptyChat,
-  cursorRunHeadless,
 } from "../control/cursor-agent.js";
 import {
-  classifyCursorAgentFailure,
-  type CursorAgentErrorClassification,
-} from "../control/cursor-agent-classify.js";
-import { parseCursorStreamJsonStdout } from "./cursor-stream-json.js";
+  codexBin,
+  codexLoginStatusText,
+  codexVersionLine,
+} from "../control/codex-cli.js";
+import {
+  openCodeAuthListText,
+  openCodeVersionLine,
+  opencodeBin,
+} from "../control/opencode-cli.js";
 import { chatToSummary, decodeChatRef } from "../connectors/chat-ref.js";
 import { parseUnifiedSessionId } from "../connectors/types.js";
 import { getMessagesForProfile } from "../connectors/registry.js";
@@ -28,10 +32,6 @@ import {
   controlAgentCheckOutputShape,
   controlAgentInput,
   controlAgentOutputShape,
-  controlAgentStartInput,
-  controlAgentStartOutputShape,
-  controlChatNewInput,
-  controlChatNewOutputShape,
   controlChatSliceInput,
   controlChatSliceOutputShape,
   controlChatTailInput,
@@ -80,49 +80,10 @@ export function registerControlTools(mcp: McpServer): void {
     withMcpToolLogging(
       "control_plan",
       async () =>
-      toolStructured(
-        controlCapabilitiesPayload() as unknown as Record<string, unknown>
-      )
-    )
-  );
-
-  mcp.registerTool(
-    "control_chat_new",
-    {
-      title: CONTROL.chat_new.title,
-      description: CONTROL.chat_new.description,
-      inputSchema: controlChatNewInput,
-      outputSchema: controlChatNewOutputShape,
-    },
-    withMcpToolLogging("control_chat_new", async ({ provider, cwd }) => {
-      if (provider !== "cursor") {
-        return toolStructured({
-          ok: false,
-          provider,
-          error: "control_chat_new is not implemented for this provider yet",
-        });
-      }
-      const resolved = resolveCwd(cwd);
-      const r = await cursorCreateEmptyChat(resolved);
-      if (!r.ok) {
-        return toolStructured({
-          ok: false,
-          provider,
-          cwd: resolved,
-          binary: cursorAgentBin(),
-          error: r.error,
-          stdout: r.stdout,
-          stderr: r.stderr,
-        });
-      }
-      return toolStructured({
-        ok: true,
-        provider,
-        cwd: resolved,
-        uuid: r.chat_id,
-        hint: "Use uuid as `resume` in control_agent.",
-      });
-    })
+        toolStructured(
+          controlCapabilitiesPayload() as unknown as Record<string, unknown>,
+        ),
+    ),
   );
 
   mcp.registerTool(
@@ -134,122 +95,8 @@ export function registerControlTools(mcp: McpServer): void {
       outputSchema: controlAgentOutputShape,
     },
     withMcpToolLogging("control_agent", async (args) => {
-      if (args.provider !== "cursor") {
-        return toolStructured({
-          ok: false,
-          provider: args.provider,
-          error: "control_agent is not implemented for this provider yet",
-        });
-      }
-      const resolved = resolveCwd(args.cwd);
-      let resume = args.resume?.trim() || undefined;
-      let auto_created_cli_chat_uuid: string | undefined;
-
-      const useAutoChat =
-        args.auto_chat !== false && !resume && !args.continue_chat;
-
-      if (useAutoChat) {
-        const created = await cursorCreateEmptyChat(resolved);
-        if (!created.ok) {
-          const blob = `${created.stderr}\n${created.error}`;
-          const c = classifyCursorAgentFailure(blob);
-          return toolStructured({
-            ok: false,
-            provider: args.provider,
-            cwd: resolved,
-            error: `auto_chat: ${created.error}`,
-            stdout: created.stdout,
-            stderr: created.stderr,
-            exit_code: null,
-            signal: null,
-            timed_out: false,
-            error_classification: c.classification,
-            cursor_stderr_message: c.primary_message,
-            ...(c.hint ? { hint: c.hint } : {}),
-          });
-        }
-        resume = created.chat_id;
-        auto_created_cli_chat_uuid = created.chat_id;
-      }
-
-      const r = await cursorRunHeadless({
-        cwd: resolved,
-        prompt: args.prompt,
-        sessionId: resume,
-        continueSession: args.continue_chat,
-        outputFormat: args.format ?? "text",
-        streamPartialOutput: args.stream,
-        model: args.model,
-        mode: args.mode,
-        plan: args.plan,
-        trust: args.trust ?? true,
-        force: args.force,
-        approveMcps: args.approve_mcp ?? true,
-        sandbox: args.sandbox ?? "disabled",
-        cloud: args.cloud,
-      });
-      const ok = r.code === 0 && !r.timedOut;
-      const fmt = args.format ?? "text";
-      const streamParsed =
-        fmt === "stream-json" && r.stdout
-          ? parseCursorStreamJsonStdout(r.stdout)
-          : null;
-
-      let hint: string | undefined;
-      let error_classification: CursorAgentErrorClassification | undefined;
-      let cursor_stderr_message: string | undefined;
-
-      if (!ok) {
-        if (r.stderr?.trim()) {
-          const c = classifyCursorAgentFailure(r.stderr);
-          hint = c.hint;
-          error_classification = c.classification;
-          cursor_stderr_message = c.primary_message;
-        } else {
-          cursor_stderr_message = `Non-zero exit: code=${r.code ?? "?"}${
-            r.timedOut ? " (timed out)" : ""
-          }`;
-          error_classification = r.timedOut ? "timeout" : "unknown";
-        }
-      }
-
-      return toolStructured({
-        ok,
-        provider: args.provider,
-        cwd: resolved,
-        exit_code: r.code,
-        signal: r.signal,
-        timed_out: r.timedOut,
-        stdout: r.stdout,
-        stderr: r.stderr,
-        ...(auto_created_cli_chat_uuid
-          ? { auto_created_cli_chat_uuid }
-          : {}),
-        ...(streamParsed
-          ? {
-              stream_json_events: streamParsed.stream_json_events,
-              stream_json_truncated: streamParsed.stream_json_truncated,
-            }
-          : {}),
-        ...(hint ? { hint } : {}),
-        ...(error_classification ? { error_classification } : {}),
-        ...(cursor_stderr_message ? { cursor_stderr_message } : {}),
-      });
-    })
-  );
-
-  mcp.registerTool(
-    "control_agent_start",
-    {
-      title: CONTROL.agent_start.title,
-      description: CONTROL.agent_start.description,
-      inputSchema: controlAgentStartInput,
-      outputSchema: controlAgentStartOutputShape,
-    },
-    withMcpToolLogging(
-      "control_agent_start",
-      async (args) => controlAgentStart(args as ControlAgentStartArgs),
-    )
+      return controlAgentStart(args as ControlAgentStartArgs);
+    }),
   );
 
   mcp.registerTool(
@@ -274,7 +121,7 @@ export function registerControlTools(mcp: McpServer): void {
         status: rec.status,
         created_at: rec.created_at,
         updated_at: rec.updated_at,
-        provider: rec.provider,
+        backend: rec.provider,
         cwd: rec.cwd,
         prompt_preview: rec.prompt_preview,
         resume_uuid: rec.resume_uuid,
@@ -288,7 +135,7 @@ export function registerControlTools(mcp: McpServer): void {
         format: rec.format,
         ...(rec.error ? { run_error: rec.error } : {}),
       });
-    })
+    }),
   );
 
   mcp.registerTool(
@@ -325,7 +172,7 @@ export function registerControlTools(mcp: McpServer): void {
           truncated: sliced.truncated,
         });
       },
-    )
+    ),
   );
 
   mcp.registerTool(
@@ -356,7 +203,7 @@ export function registerControlTools(mcp: McpServer): void {
           truncated,
         });
       },
-    )
+    ),
   );
 
   mcp.registerTool(
@@ -385,7 +232,7 @@ export function registerControlTools(mcp: McpServer): void {
         total_count: total,
         truncated,
       });
-    })
+    }),
   );
 
   mcp.registerTool(
@@ -419,7 +266,7 @@ export function registerControlTools(mcp: McpServer): void {
           truncated,
         });
       },
-    )
+    ),
   );
 
   mcp.registerTool(
@@ -430,28 +277,50 @@ export function registerControlTools(mcp: McpServer): void {
       inputSchema: controlAgentCheckInput,
       outputSchema: controlAgentCheckOutputShape,
     },
-    withMcpToolLogging("control_agent_check", async ({ provider, cwd }) => {
-      if (provider !== "cursor") {
+    withMcpToolLogging("control_agent_check", async ({ cwd }) => {
+      const backend = resolveControlBackend();
+      const resolved = resolveCwd(cwd);
+      if (backend === "cursor") {
+        const [about, status] = await Promise.all([
+          cursorAgentAbout(resolved),
+          cursorAgentStatusText(resolved),
+        ]);
         return toolStructured({
-          ok: false,
-          provider,
-          error: "control_agent_check is not implemented for this provider yet",
+          ok: true,
+          backend,
+          cwd: resolved,
+          binary: cursorAgentBin(),
+          about,
+          status,
         });
       }
-      const resolved = resolveCwd(cwd);
+      if (backend === "opencode") {
+        const [about, status] = await Promise.all([
+          openCodeVersionLine(resolved),
+          openCodeAuthListText(resolved),
+        ]);
+        return toolStructured({
+          ok: true,
+          backend,
+          cwd: resolved,
+          binary: opencodeBin(),
+          about,
+          status,
+        });
+      }
       const [about, status] = await Promise.all([
-        cursorAgentAbout(resolved),
-        cursorAgentStatusText(resolved),
+        codexVersionLine(resolved),
+        codexLoginStatusText(resolved),
       ]);
       return toolStructured({
         ok: true,
-        provider,
+        backend,
         cwd: resolved,
-        binary: cursorAgentBin(),
+        binary: codexBin(),
         about,
         status,
       });
-    })
+    }),
   );
 
   mcp.registerTool(
@@ -462,81 +331,69 @@ export function registerControlTools(mcp: McpServer): void {
       inputSchema: controlSessionMetaInput,
       outputSchema: controlSessionMetaOutputShape,
     },
-    withMcpToolLogging("control_session_meta", async ({ provider, id, count }) => {
-      const parsed = parseUnifiedSessionId(id);
-      if (!parsed) {
-        return toolStructured({
-          ok: false,
-          error: "Invalid id (expected source:base64payload)",
-        });
-      }
-      let chat: Record<string, unknown>;
-      try {
-        chat = decodeChatRef(parsed.nativeId);
-      } catch {
-        return toolStructured({ ok: false, error: "Bad session payload" });
-      }
-      const bundle = loadVendorEditors();
-      const adapterName = editorForChatSource(
-        bundle.editors,
-        String(chat.source ?? "")
-      )?.name;
-      const allowed = getAllowedEditorIds();
-      if (!adapterName || !allowed.has(adapterName)) {
-        return toolStructured({
-          ok: false,
-          error:
-            "Session adapter not in POKE_AGENTS_EDITORS profile or unknown source",
-        });
-      }
-      if (provider === "cursor" && adapterName !== "cursor") {
-        return toolStructured({
-          ok: false,
-          error: `Expected a Cursor session but adapter is "${adapterName}"`,
-        });
-      }
-      if (provider === "opencode" && adapterName !== "opencode") {
-        return toolStructured({
-          ok: false,
-          error: `Expected an OpenCode session but adapter is "${adapterName}"`,
-        });
-      }
-      const summary = chatToSummary(chat);
-      const session = {
-        id: summary.id,
-        source: summary.source,
-        title: summary.title,
-        project_path: summary.projectPath,
-        last_updated_at: summary.lastUpdatedAt,
-      };
-      if (!count) {
-        return toolStructured({
-          ok: true,
-          provider,
-          adapter: adapterName,
-          session,
-          message_count: null,
-        });
-      }
-      const full = await getMessagesForProfile(id);
-      if (!full.ok) {
+    withMcpToolLogging(
+      "control_session_meta",
+      async ({ id, count }) => {
+        const parsed = parseUnifiedSessionId(id);
+        if (!parsed) {
+          return toolStructured({
+            ok: false,
+            error: "Invalid id (expected source:base64payload)",
+          });
+        }
+        let chat: Record<string, unknown>;
+        try {
+          chat = decodeChatRef(parsed.nativeId);
+        } catch {
+          return toolStructured({ ok: false, error: "Bad session payload" });
+        }
+        const bundle = loadVendorEditors();
+        const adapterName = editorForChatSource(
+          bundle.editors,
+          String(chat.source ?? ""),
+        )?.name;
+        const allowed = getAllowedEditorIds();
+        if (!adapterName || !allowed.has(adapterName)) {
+          return toolStructured({
+            ok: false,
+            error:
+              "Session adapter not in POKE_AGENTS_EDITORS profile or unknown source",
+          });
+        }
+        const summary = chatToSummary(chat);
+        const session = {
+          id: summary.id,
+          source: summary.source,
+          title: summary.title,
+          project_path: summary.projectPath,
+          last_updated_at: summary.lastUpdatedAt,
+        };
+        if (!count) {
+          return toolStructured({
+            ok: true,
+            adapter: adapterName,
+            session,
+            message_count: null,
+          });
+        }
+        const full = await getMessagesForProfile(id);
+        if (!full.ok) {
+          return toolStructured({
+            ok: true,
+            adapter: adapterName,
+            session,
+            message_count: null,
+            message_count_error: full.error,
+          });
+        }
         return toolStructured({
           ok: true,
-          provider,
           adapter: adapterName,
           session,
-          message_count: null,
-          message_count_error: full.error,
+          message_count: full.messages.length,
         });
-      }
-      return toolStructured({
-        ok: true,
-        provider,
-        adapter: adapterName,
-        session,
-        message_count: full.messages.length,
-      });
-    })
+      },
+    ),
   );
 
   mcp.registerTool(
@@ -558,13 +415,6 @@ export function registerControlTools(mcp: McpServer): void {
       } catch {
         return toolStructured({ ok: false, error: "Bad session payload" });
       }
-      const src = String(chat.source ?? "");
-      if (!src.startsWith("cursor")) {
-        return toolStructured({
-          ok: false,
-          error: `Not a Cursor-backed row (source=${src})`,
-        });
-      }
       const composerId =
         typeof chat.composerId === "string" ? chat.composerId : null;
       return toolStructured({
@@ -572,10 +422,10 @@ export function registerControlTools(mcp: McpServer): void {
         id,
         uuid: composerId,
         hint: composerId
-          ? "Pass uuid as resume in control_agent."
-          : "No composerId; use control_chat_new or inspect keys.",
+          ? "Pass uuid as `resume` in control_agent (Cursor uuid, OpenCode ses_…, or Codex thread uuid)."
+          : "No composerId on this row; call control_agent without resume for a new headless session, or inspect keys.",
         keys: Object.keys(chat).sort(),
       });
-    })
+    }),
   );
 }

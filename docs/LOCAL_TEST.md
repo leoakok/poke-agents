@@ -26,6 +26,9 @@ From this repo’s root (the **`agents/`** tree):
 ```bash
 cd /path/to/poke/agents
 npm install
+npm run typecheck
+npm run lint
+npm test
 npm run build
 npm run start:poke
 ```
@@ -83,7 +86,7 @@ npm run test:smoke
 # same as: npm test
 ```
 
-Uses the official MCP **in-memory transport** + `Client` to call every registered tool with safe arguments (OpenCode stubs, invalid ids, `web_fetch` to example.com). Does **not** run a real Cursor `agent -p` job.
+Uses the official MCP **in-memory transport** + `Client` to call every registered tool with safe arguments (invalid control binaries, invalid ids). Does **not** run a real Cursor `agent -p` / OpenCode / Codex job.
 
 Tool names are asserted in `src/smoke/mcp-tools-smoke.test.ts` (`EXPECTED_MCP_TOOL_NAMES`).
 

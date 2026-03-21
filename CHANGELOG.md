@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/leoakok/poke-agents/compare/v1.0.0...v1.1.0) (2026-03-21)
+
+
+### Features
+
+* agent templates, control_agent.agent_template, MCP traffic UI ([e9ce261](https://github.com/leoakok/poke-agents/commit/e9ce261889a50f33cccb35ab1b7e2ec4b4f910b7))
+
 # 1.0.0 (2026-03-21)
 
 

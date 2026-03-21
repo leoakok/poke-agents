@@ -1,0 +1,35 @@
+{
+  "name": "@leokok/poke-agents",
+  "version": "0.1.0",
+  "description": "Clone poke-agents, install, build, run MCP + dashboard + Poke tunnel",
+  "type": "module",
+  "bin": {
+    "poke-agents": "./cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "poke",
+    "mcp",
+    "cursor",
+    "agents",
+    "nextjs"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/leoakok/poke-agents#readme",
+  "bugs": {
+    "url": "https://github.com/leoakok/poke-agents/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leoakok/poke-agents.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

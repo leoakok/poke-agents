@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * @leokok/poke-agents — clone / update repo, npm install + build, then MCP + Next + tunnel.
+ * Terminal UX matches @leokok/poke-apple-music (banner, star CTA, spacing).
  */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
@@ -12,7 +13,9 @@ import { stdin as input, stderr as output } from "node:process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Cache directory under ~/.local/share (stable; not tied to npm scope). */
 const DATA_SUBDIR = "poke-agents";
+
 const autoYes =
   process.argv.includes("-y") ||
   process.argv.includes("--yes") ||
@@ -26,6 +29,7 @@ const color =
         green: (s) => `\x1b[32m${s}\x1b[0m`,
         cyan: (s) => `\x1b[36m${s}\x1b[0m`,
         red: (s) => `\x1b[31m${s}\x1b[0m`,
+        yellow: (s) => `\x1b[33m${s}\x1b[0m`,
       }
     : {
         dim: (s) => s,
@@ -33,20 +37,19 @@ const color =
         green: (s) => s,
         cyan: (s) => s,
         red: (s) => s,
+        yellow: (s) => s,
       };
 
 function line(msg = "") {
   console.error(msg);
 }
 
+function pkg() {
+  return JSON.parse(readFileSync(join(__dirname, "package.json"), "utf8"));
+}
+
 function pkgVersion() {
-  try {
-    return JSON.parse(
-      readFileSync(join(__dirname, "package.json"), "utf8"),
-    ).version;
-  } catch {
-    return "0.0.0";
-  }
+  return pkg().version;
 }
 
 function gitRemoteUrl() {
@@ -57,7 +60,11 @@ function gitRemoteUrl() {
 }
 
 function githubRepoUrl() {
-  let u = gitRemoteUrl().replace(/\.git$/, "");
+  let u =
+    pkg().repository?.url || "https://github.com/leoakok/poke-agents";
+  u = String(u)
+    .replace(/^git\+/, "")
+    .replace(/\.git$/, "");
   if (u.startsWith("git@github.com:")) {
     u = `https://github.com/${u.slice("git@github.com:".length)}`;
   }
@@ -65,16 +72,22 @@ function githubRepoUrl() {
 }
 
 function printBanner() {
-  line(color.dim("  ─────────────────────────────────────────"));
-  line(`  ${color.bold("@leokok/poke-agents")}  ${color.dim(`v${pkgVersion()}`)}`);
-  line(color.dim("  ─────────────────────────────────────────"));
+  const v = pkgVersion();
+  const displayName = pkg().name || DATA_SUBDIR;
+  line(color.dim(" ─────────────────────────────────────────"));
+  line(` ${color.bold(displayName)} ${color.dim(`v${v}`)}`);
+  line(color.dim(" ─────────────────────────────────────────"));
   line("");
 }
 
 function printStarCta() {
-  line(color.dim("  ─────────────────────────────────────────"));
-  line(`  ${color.cyan("Repo:")} ${color.green(githubRepoUrl())}`);
-  line(color.dim("  ─────────────────────────────────────────"));
+  const url = githubRepoUrl();
+  line(color.dim(" ─────────────────────────────────────────"));
+  line(
+    ` ${color.cyan("Enjoying poke-agents?")} ${color.dim("Star the repo to show support:")}`,
+  );
+  line(` ${color.green(url)}`);
+  line(color.dim(" ─────────────────────────────────────────"));
   line("");
 }
 
@@ -165,7 +178,11 @@ function ensureGitRepo(repoDir, repoUrl) {
       };
     }
     if (pulled.updated) {
-      line(color.dim("  Updated cached poke-agents from git."));
+      line(
+        color.dim(
+          " Updated cached repo from GitHub (git pull / fetch + merge).",
+        ),
+      );
     }
     if (!existsSync(marker)) {
       return {
@@ -179,7 +196,11 @@ function ensureGitRepo(repoDir, repoUrl) {
     return { ok: true };
   }
 
-  line(color.dim("  Cloning poke-agents (first run, shallow clone)…"));
+  line(
+    color.dim(
+      " Cloning poke-agents from GitHub (first run, shallow clone)…",
+    ),
+  );
   mkdirSync(dirname(repoDir), { recursive: true });
   const r = spawnSync("git", ["clone", "--depth", "1", repoUrl, repoDir], {
     encoding: "utf8",
@@ -197,25 +218,41 @@ function ensureGitRepo(repoDir, repoUrl) {
     return {
       ok: false,
       code: "no_marker",
-      message: "Clone missing scripts/poke-run.mjs — check POKE_AGENTS_REPO.",
+      message:
+        "Clone is missing scripts/poke-run.mjs — check POKE_AGENTS_REPO.",
       cacheParent: dirname(repoDir),
     };
   }
-  line(color.dim("  …cloned."));
+  line(color.dim(" …cloned."));
   line("");
   return { ok: true };
 }
 
-async function yesNo(question, defaultYes) {
-  if (autoYes) return defaultYes;
-  if (!input.isTTY) return false;
+async function yesNo(question, defaultNo = true) {
+  if (autoYes) {
+    line(color.dim(` ${question} [auto: y]`));
+    return true;
+  }
+  if (!input.isTTY) {
+    line(
+      color.dim(
+        ` ${question} (non-interactive: use --yes or POKE_AGENTS_YES=1)`,
+      ),
+    );
+    return false;
+  }
+  const hint = defaultNo ? "[y/N]" : "[Y/n]";
   const rl = readline.createInterface({ input, output });
   try {
-    const hint = defaultYes ? "Y/n" : "y/N";
-    const ans = await rl.question(`${question} (${hint}) `);
-    const t = ans.trim().toLowerCase();
-    if (!t) return defaultYes;
-    return t === "y" || t === "yes";
+    const raw = (
+      await rl.question(color.dim(` ${question} ${hint} `))
+    )
+      .trim()
+      .toLowerCase();
+    if (!raw) {
+      return !defaultNo;
+    }
+    return raw === "y" || raw === "yes";
   } finally {
     rl.close();
   }
@@ -224,19 +261,25 @@ async function yesNo(question, defaultYes) {
 async function ensureGitRepoInteractive(repoDir, repoUrl) {
   for (;;) {
     const res = ensureGitRepo(repoDir, repoUrl);
-    if (res.ok) return true;
+    if (res.ok) {
+      return true;
+    }
     if (res.code === "bad_cache" || res.code === "no_marker") {
-      line(color.red(`  ${res.message || "Repository layout looks wrong."}`));
+      line(color.red(` ${res.message || "Repository layout looks wrong."}`));
     } else if (res.code === "pull_fail") {
-      line(color.red(`  ${res.message || "Git update failed."}`));
-      if (res.stderr?.trim()) line(color.dim(res.stderr.trim()));
+      line(color.red(` ${res.message || "Git update failed."}`));
+      if (res.stderr?.trim()) {
+        line(color.dim(res.stderr.trim()));
+      }
     } else {
-      line(color.red("  Could not clone the repository."));
-      if (res.stderr?.trim()) line(color.dim(res.stderr.trim()));
+      line(color.red(" Could not clone the repository."));
+      if (res.stderr?.trim()) {
+        line(color.dim(res.stderr.trim()));
+      }
     }
     line("");
     const wipe = await yesNo(
-      `Delete cache at ${res.cacheParent} and try again?`,
+      `Delete cache at ${res.cacheParent} and try cloning again?`,
       true,
     );
     if (!wipe) {
@@ -246,11 +289,11 @@ async function ensureGitRepoInteractive(repoDir, repoUrl) {
     try {
       rmSync(res.cacheParent, { recursive: true, force: true });
     } catch (e) {
-      line(color.red(`  Could not remove: ${e.message}`));
+      line(color.red(` Could not remove: ${e.message}`));
       printStarCta();
       return false;
     }
-    line(color.dim("  Cache cleared. Retrying…"));
+    line(color.dim(" Cache cleared. Retrying clone…"));
     line("");
   }
 }
@@ -259,16 +302,21 @@ function requireNode20() {
   const m = /^v(\d+)/.exec(process.version);
   const major = m ? Number(m[1]) : 0;
   if (major < 20) {
-    line(color.red(`  Need Node.js >= 20 (you have ${process.version}).`));
+    line(
+      color.red(` Need Node.js 20+ (this process is ${process.version}).`),
+    );
     printStarCta();
     process.exit(1);
   }
 }
 
 function requireGit() {
-  const r = spawnSync("git", ["--version"], { stdio: "pipe", encoding: "utf8" });
+  const r = spawnSync("git", ["--version"], {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
   if (r.status !== 0) {
-    line(color.red("  git is required but was not found on PATH."));
+    line(color.red(" git is required but was not found on PATH."));
     printStarCta();
     process.exit(1);
   }
@@ -284,36 +332,48 @@ async function main() {
   const repoUrl = gitRemoteUrl();
 
   const ok = await ensureGitRepoInteractive(repoDir, repoUrl);
-  if (!ok) process.exit(1);
+  if (!ok) {
+    process.exit(1);
+  }
 
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
-  line(color.dim("  npm install…"));
+  line(color.dim(" npm install…"));
   const ins = spawnSync(npm, ["install"], {
     cwd: repoDir,
     stdio: "inherit",
     env: process.env,
   });
   if (ins.status !== 0) {
-    line(color.red("  npm install failed."));
+    line(color.red(" npm install failed."));
     printStarCta();
     process.exit(ins.status ?? 1);
   }
 
-  line(color.dim("  npm run build…"));
+  line(color.dim(" npm run build…"));
   const bd = spawnSync(npm, ["run", "build"], {
     cwd: repoDir,
     stdio: "inherit",
     env: process.env,
   });
   if (bd.status !== 0) {
-    line(color.red("  npm run build failed (native modules like better-sqlite3 need a compiler)."));
+    line(
+      color.red(
+        " npm run build failed (native modules like better-sqlite3 may need build tools).",
+      ),
+    );
     printStarCta();
     process.exit(bd.status ?? 1);
   }
 
+  line(color.green(" You're all set."));
+  line(
+    ` ${color.dim("Poke can use your agents (MCP + dashboard + tunnel) while this window stays open.")}`,
+  );
+  line(` ${color.dim("Press Ctrl+C to stop when you're done.")}`);
   line("");
-  line(color.green("  Starting MCP + dashboard + tunnel…"));
+  printStarCta();
+  line(color.dim(" Output from npm / Next / tunnel follows."));
   line("");
 
   const run = spawn(npm, ["run", "start:poke"], {
@@ -322,7 +382,7 @@ async function main() {
     env: process.env,
   });
   run.on("error", (err) => {
-    line(color.red(`  Could not start: ${err.message}`));
+    line(color.red(` Couldn't start: ${err.message}`));
     printStarCta();
     process.exit(1);
   });

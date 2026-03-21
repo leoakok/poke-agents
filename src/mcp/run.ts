@@ -5,6 +5,10 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { createPokeAgentsMcpServer } from "./server.js";
 import { mountDashboardApi } from "../http/dashboard-api.js";
+import {
+  logMcpHttpRequest,
+  wrapExpressResponseForMcpLogging,
+} from "../http/mcp-traffic-hub.js";
 import { runWithMcpRequestContext } from "../control/mcp-request-context.js";
 
 function parseArgs(argv: string[]): { mode: "stdio" | "http"; port: number } {
@@ -32,6 +36,8 @@ async function main(): Promise<void> {
   const app = createMcpExpressApp();
   mountDashboardApi(app);
   app.post("/mcp", async (req: Request, res: Response) => {
+    logMcpHttpRequest(req.body);
+    wrapExpressResponseForMcpLogging(res);
     const mcp = createPokeAgentsMcpServer();
     try {
       const transport = new StreamableHTTPServerTransport({
@@ -78,7 +84,7 @@ async function main(): Promise<void> {
   const api = `http://127.0.0.1:${port}/api`;
   console.error(`poke-agents MCP (HTTP) → ${url}`);
   console.error(
-    `poke-agents dashboard API → ${api}/connectors | /sessions | /session | /agent-templates | /agent-runtime | /agent-runtime/stream | POST /agent-runtime/stop`
+    `poke-agents dashboard API → ${api}/connectors | /sessions | /session | /agent-templates | /agent-runtime | /agent-runtime/stream | /mcp-traffic | /mcp-traffic/stream | POST /agent-runtime/stop`
   );
   console.error(`Poke: poke tunnel ${url} -n "Poke agents"`);
 }

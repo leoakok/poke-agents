@@ -8,5 +8,9 @@ export default function AppSectionLayout({
 }: Readonly<{
   children: ReactNode;
 }>) {
-  return <div className="flex w-full min-w-0 flex-1 flex-col">{children}</div>;
+  return (
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
+      {children}
+    </div>
+  );
 }

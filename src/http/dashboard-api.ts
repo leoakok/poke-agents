@@ -10,10 +10,15 @@ import { BUILTIN_TEMPLATE_IDS } from "../agent-templates-data.js";
 import {
   agentTemplatesFileHint,
   deleteCustomAgentTemplate,
-  listAgentTemplatesMerged,
+  mapTemplatesApiRows,
   replaceCustomAgentTemplates,
   upsertCustomAgentTemplate,
 } from "../agent-templates-store.js";
+import {
+  getRecentMcpTraffic,
+  subscribeMcpTraffic,
+  type McpTrafficEntry,
+} from "./mcp-traffic-hub.js";
 
 function corsApi(req: Request, res: Response, next: () => void): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -29,7 +34,7 @@ function corsApi(req: Request, res: Response, next: () => void): void {
 function parseLimit(q: unknown): number {
   const n = typeof q === "string" ? Number(q) : NaN;
   if (Number.isFinite(n) && n > 0 && n <= 500) return Math.floor(n);
-  return 100;
+  return 50;
 }
 
 /**
@@ -66,23 +71,15 @@ export function mountDashboardApi(app: Express): void {
 
   app.get("/api/sessions", async (req: Request, res: Response) => {
     try {
-      const source =
-        typeof req.query.editor === "string"
-          ? req.query.editor
-          : typeof req.query.source === "string"
-            ? req.query.source
-            : undefined;
-      const project_path =
-        typeof req.query.folder === "string"
-          ? req.query.folder
-          : typeof req.query.project_path === "string"
-            ? req.query.project_path
-            : undefined;
+      const editor =
+        typeof req.query.editor === "string" ? req.query.editor : undefined;
+      const folder =
+        typeof req.query.folder === "string" ? req.query.folder : undefined;
       const limit = parseLimit(req.query.limit);
       const sessions = await listSessionsForProfile({
-        source,
+        source: editor,
         limit,
-        projectPath: project_path,
+        projectPath: folder,
       });
       res.json({
         ok: true as const,
@@ -204,15 +201,11 @@ export function mountDashboardApi(app: Express): void {
 
   app.get("/api/agent-templates", (_req: Request, res: Response) => {
     try {
-      const merged = listAgentTemplatesMerged();
       res.json({
         ok: true as const,
         storage_path: agentTemplatesFileHint(),
         built_in_ids: [...BUILTIN_TEMPLATE_IDS],
-        templates: merged.map((t) => ({
-          ...t,
-          built_in: BUILTIN_TEMPLATE_IDS.has(t.id),
-        })),
+        templates: mapTemplatesApiRows(),
       });
     } catch (e) {
       res.status(500).json({
@@ -264,15 +257,11 @@ export function mountDashboardApi(app: Express): void {
         });
         return;
       }
-      const merged = listAgentTemplatesMerged();
       res.json({
         ok: true as const,
         storage_path: agentTemplatesFileHint(),
         built_in_ids: [...BUILTIN_TEMPLATE_IDS],
-        templates: merged.map((t) => ({
-          ...t,
-          built_in: BUILTIN_TEMPLATE_IDS.has(t.id),
-        })),
+        templates: mapTemplatesApiRows(),
       });
     } catch (e) {
       res.status(500).json({
@@ -305,5 +294,41 @@ export function mountDashboardApi(app: Express): void {
         error: e instanceof Error ? e.message : String(e),
       });
     }
+  });
+
+  app.get("/api/mcp-traffic", (_req: Request, res: Response) => {
+    res.json({
+      ok: true as const,
+      entries: getRecentMcpTraffic(200),
+    });
+  });
+
+  app.get("/api/mcp-traffic/stream", (req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    if (typeof res.flushHeaders === "function") {
+      res.flushHeaders();
+    }
+
+    const send = (entry: McpTrafficEntry) => {
+      res.write(`data: ${JSON.stringify(entry)}\n\n`);
+    };
+
+    for (const e of getRecentMcpTraffic(100)) {
+      send(e);
+    }
+
+    const unsub = subscribeMcpTraffic(send);
+    const onClose = () => {
+      unsub();
+      if (!res.writableEnded) {
+        res.end();
+      }
+    };
+    req.on("close", onClose);
+    req.on("aborted", onClose);
   });
 }

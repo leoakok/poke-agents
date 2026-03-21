@@ -50,23 +50,27 @@ export function ChatWorkspace() {
   }, [sessionId, liveRuntime, sessions]);
 
   useEffect(() => {
-    if (!sessionId) {
-      setDetailMessages([]);
-      setDetailError(null);
-      return;
-    }
     let cancelled = false;
-    setDetailLoading(true);
-    setDetailError(null);
-    void fetchSessionDetail(sessionId).then((r) => {
+    queueMicrotask(() => {
       if (cancelled) return;
-      setDetailLoading(false);
-      if (!r.ok) {
-        setDetailError(r.error);
+      if (!sessionId) {
         setDetailMessages([]);
+        setDetailError(null);
+        setDetailLoading(false);
         return;
       }
-      setDetailMessages(r.messages);
+      setDetailLoading(true);
+      setDetailError(null);
+      void fetchSessionDetail(sessionId).then((r) => {
+        if (cancelled) return;
+        setDetailLoading(false);
+        if (!r.ok) {
+          setDetailError(r.error);
+          setDetailMessages([]);
+          return;
+        }
+        setDetailMessages(r.messages);
+      });
     });
     return () => {
       cancelled = true;
@@ -100,7 +104,8 @@ export function ChatWorkspace() {
 
   if (!sessionId) {
     return (
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-4 py-8">
+      <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-hidden py-8">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain">
         <p className="text-muted-foreground text-sm">
           No session selected. Pick a chat from the sidebar or{" "}
           <Link
@@ -114,13 +119,14 @@ export function ChatWorkspace() {
         <Link href={SESSIONS_HREF} className={cn(buttonVariants())}>
           Go to sessions
         </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -183,16 +189,16 @@ export function ChatWorkspace() {
         </div>
       </div>
 
-      <div className="bg-card border-border min-h-0 w-full min-w-0 rounded-xl border shadow-sm">
+      <div className="bg-card border-border flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm">
         {detailLoading ? (
-          <Skeleton className="m-3 h-[min(60dvh,28rem)] w-[calc(100%-1.5rem)]" />
+          <Skeleton className="m-3 min-h-[min(40dvh,20rem)] flex-1" />
         ) : detailError ? (
-          <p className="text-destructive p-6 text-sm">{detailError}</p>
+          <p className="text-destructive shrink-0 p-6 text-sm">{detailError}</p>
         ) : (
           <SessionChat
             messages={detailMessages}
             variant="page"
-            className="rounded-xl"
+            className="min-h-0 flex-1 rounded-xl"
           />
         )}
       </div>

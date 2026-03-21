@@ -4,10 +4,6 @@ import * as z from "zod/v4";
 // Shared primitives
 // ---------------------------------------------------------------------------
 
-export const providerParam = z.enum(["cursor", "opencode"]).describe(
-  "`cursor`: runs the Agent CLI. `opencode`: control tools stub; disk reads still work when listed in POKE_AGENTS_EDITORS."
-);
-
 export const cwdOptional = z
   .string()
   .optional()
@@ -37,14 +33,44 @@ export const READ = {
   session: {
     title: "Transcript (disk)",
     description:
-      "Full message list for one `sessions[].id`. On failure, `ok: false` and `error` explains invalid id or parse errors.",
+      "Full message list for one `sessions[].id`. On failure, `ok: false` and `error` explains invalid id or parse errors. **Orchestrators:** large threads can make this call slow — HTTP MCP clients (e.g. poke tunnel) may hit proxy timeouts; prefer `control_chat_slice` / `control_chat_tail` / `control_chat_around` for bounded windows.",
   },
   agent_templates: {
     title: "Agent templates (disk)",
     description:
-      "List or mutate custom agent persona templates stored in ~/.poke-agents/agent-templates.json (merged with built-ins). Poke can upsert templates for the dashboard.",
+      "List or mutate templates in ~/.poke-agents/agent-templates.json (merged with built-ins). Survives `npx` and package updates — only this file + optional POKE_AGENTS_TEMPLATES_PATH change. Poke and the dashboard use the same store. Upsert overrides a built-in when ids match. Delete removes a custom row or clears a built-in override.",
   },
 } as const;
+
+// ---------------------------------------------------------------------------
+// Guide tool — copy (orchestrators without resources/prompts)
+// ---------------------------------------------------------------------------
+
+export const GUIDE = {
+  poke_agents_guide: {
+    title: "Orchestrator guide (markdown)",
+    description:
+      "How poke-agents tools fit together: read vs control, ids, streaming, templates, HTTP/tunnel timeouts, and MCP prompt names. Call first when the client cannot list MCP resources or prompts (e.g. Poke). Parameter `topic` selects a section; omit or `overview` for the index; `all` returns the full guide.",
+  },
+} as const;
+
+export const pokeAgentsGuideInput = {
+  topic: z
+    .string()
+    .optional()
+    .describe(
+      "Guide section: `overview` (default), `read`, `control`, `session_ids`, `streaming`, `tunnel`, `templates`, `prompts`, or `all` (full manual). Unknown values are treated as `overview`.",
+    ),
+};
+
+export const pokeAgentsGuideOutputShape = {
+  ok: z.literal(true),
+  topic: z.string(),
+  markdown: z.string(),
+  topics: z
+    .array(z.string())
+    .describe("Valid `topic` values for follow-up `poke_agents_guide` calls."),
+};
 
 // ---------------------------------------------------------------------------
 // Read — inputs
@@ -131,40 +157,31 @@ export const CONTROL = {
   plan: {
     title: "Integration contract",
     description:
-      "Feature matrix per provider, disk vs CLI id rules, env vars, and why in-flight runs cannot be stopped via CLI.",
-  },
-  chat_new: {
-    title: "New CLI chat (Cursor)",
-    description:
-      "Empty chat via `agent create-chat` → `uuid` for `control_agent.resume`. Needs `agent` on PATH or POKE_AGENTS_CURSOR_AGENT_BIN.",
+      "**Read-only metadata** for orchestrators: no side effects, does not run the CLI or call Poke. Returns provider feature matrix, disk vs CLI id rules, env vars, `orchestration` (HTTP/tunnel timeouts, async `control_agent`, transcript pagination), and `session_stop` (CLI cannot cancel in-flight runs). Call once at startup or when wiring a client.",
   },
   agent: {
-    title: "Headless agent (Cursor)",
+    title: "Headless agent",
     description:
-      "`agent -p` with optional `resume` (CLI uuid), `continue_chat` (--continue), model/mode/trust/MCP/sandbox flags. Default `auto_chat: true` runs `create-chat` when neither `resume` nor `continue_chat` is set (one-shot headless). Defaults: `trust: true`, `approve_mcp: true`, `sandbox: \"disabled\"` so headless runs are unattended and can use network/shell (set `sandbox: \"enabled\"` to isolate). Use `format: stream-json` + `stream: true` for progressive JSON lines in stdout and `stream_json_events`. Bounded by POKE_AGENTS_AGENT_TIMEOUT_MS. The parent MCP still has `web_fetch` / `web_search` for HTTP — the CLI cannot open a GUI browser.",
+      "Runs the configured headless CLI (**`POKE_AGENTS_CONTROL`**: `cursor` = Cursor `agent -p`, `opencode` = `opencode run`, `codex` = `codex exec`) and **always** returns immediately with `run_id`. No `provider` argument — switch backends with env only. Optional **`agent_template`**: `id` from **`agent_templates`** (action `list`) — prepends that template's `promptPreamble` to `prompt`. **Cursor new session:** omit `resume`/`continue_chat` → `create-chat` then background run. **OpenCode / Codex new session:** omit `resume`/`continue_chat` → fresh run; session/thread id appears in JSON stdout and/or the Poke completion callback after the CLI exits. **Completion:** Poke callback headers or `poke_callback_*` tool args; optional `control_run_status` / `control_run_output_slice`. Cursor-only defaults: `trust`, `approve_mcp`, `sandbox`. Codex: `sandbox`/`force` map to exec flags; see `control_plan.providers`. Auth: `CURSOR_API_KEY` (Cursor) / `opencode auth` (OpenCode) / `codex login` (Codex).",
   },
   agent_check: {
-    title: "CLI identity",
-    description: "Non-interactive `agent about` + `agent status` before spending tokens.",
+    title: "CLI check",
+    description:
+      "Sanity-check the active control CLI (`POKE_AGENTS_CONTROL`): Cursor → `agent about` + `agent status`; OpenCode → `opencode --version` + `opencode auth list`; Codex → `codex --version` + `codex login status`.",
   },
   session_meta: {
     title: "Disk session metadata",
     description:
-      "Decode a `sessions[].id` without loading the full thread unless `count: true` (slow on huge chats). `provider` must match the row’s adapter.",
+      "Decode a `sessions[].id` without loading the full thread unless `count: true` (slow on huge chats). Adapter is inferred from the row.",
   },
   disk_to_cli: {
-    title: "Disk id → CLI resume uuid",
+    title: "Disk id → headless resume id",
     description:
-      "Cursor rows: read `composerId` when present → use as `control_agent.resume`. If null, `control_chat_new` or inspect `keys`.",
-  },
-  agent_start: {
-    title: "Headless agent async start (Cursor)",
-    description:
-      "Same as `control_agent` but returns immediately with `run_id` while `agent -p` runs in the background. Poll `control_run_status` / `control_run_output_slice`. If Poke sends `X-Poke-Callback-Url` + `X-Poke-Callback-Token` (HTTP MCP) or you pass `poke_callback_url` + `poke_callback_token`, a final small JSON ping is sent when the run completes or fails.",
+      "Reads `composerId` from the disk snapshot (Cursor, OpenCode, Codex, …) → pass as `control_agent.resume`. If null, start a new headless session without `resume` or inspect `keys`.",
   },
   run_status: {
     title: "Async run status",
-    description: "Lifecycle and exit metadata for a `run_id` from `control_agent_start`.",
+    description: "Lifecycle and exit metadata for a `run_id` from `control_agent`.",
   },
   run_output_slice: {
     title: "Async run output slice",
@@ -187,24 +204,6 @@ export const CONTROL = {
   },
 } as const;
 
-export const WEB = {
-  fetch: {
-    title: "HTTP GET (dev)",
-    description:
-      "Fetch a URL with transparent errors (TLS, DNS, timeout). Body is UTF-8 text preview; many sites block server-side clients.",
-  },
-  search: {
-    title: "Web search (Brave)",
-    description:
-      "Search the public web via Brave Search API. Requires POKE_AGENTS_BRAVE_API_KEY or BRAVE_API_KEY. Prefer this from the orchestrator (Poke); the headless Cursor CLI has no GUI browser — pair with `control_agent` after `sandbox: \"disabled\"` for shell/curl if needed.",
-  },
-} as const;
-
-export const controlChatNewInput = {
-  provider: providerParam,
-  cwd: cwdOptional,
-};
-
 export const pokeCallbackFields = {
   poke_callback_url: z
     .string()
@@ -220,68 +219,81 @@ export const pokeCallbackFields = {
 };
 
 export const controlAgentInput = {
-  provider: providerParam,
-  prompt: z.string().min(1).describe("Instruction for `agent -p`."),
+  prompt: z
+    .string()
+    .min(1)
+    .describe(
+      "Instruction for the headless CLI (after any `agent_template` preamble). Active CLI is **`POKE_AGENTS_CONTROL`**: Cursor `agent -p`, OpenCode `opencode run`, or Codex `codex exec`.",
+    ),
+  agent_template: z
+    .string()
+    .optional()
+    .describe(
+      "Optional template `id` from **`agent_templates`** (`action: list`). Prepends that row's `promptPreamble` to `prompt` before running the CLI.",
+    ),
   cwd: cwdOptional,
+  workspace: z
+    .string()
+    .optional()
+    .describe(
+      "Cursor: `--workspace` (resolved vs `cwd`). OpenCode / Codex: subdirectory under `cwd` used as the run working directory (`--cd` for Codex).",
+    ),
   resume: z
     .string()
     .optional()
-    .describe("CLI chat uuid (`--resume`). Not a disk `sessions[].id` unless it is literally a uuid."),
+    .describe(
+      "Continue an existing headless session: Cursor uuid (`--resume`); OpenCode `ses_…` (`--session`); Codex thread uuid (`codex exec resume <id>`). **Omit** `resume` and `continue_chat` to start **new**. Map disk rows with `control_disk_to_cli`.",
+    ),
   continue_chat: z
     .boolean()
     .optional()
-    .describe("`--continue`: reuse last CLI context (separate from `resume`)."),
+    .describe(
+      "Cursor: `--continue`. OpenCode: `--continue` (last session). Codex: `exec resume --last`. Ignored when `resume` is set.",
+    ),
   format: z
     .enum(["text", "json", "stream-json"])
     .optional()
     .default("text")
-    .describe("`--output-format`."),
+    .describe(
+      "Cursor: `--output-format`. OpenCode: `json` / `stream-json` → `--format json`. Codex: `json` / `stream-json` → `--json` (JSONL).",
+    ),
   stream: z
     .boolean()
     .optional()
-    .describe("With stream-json: `--stream-partial-output`."),
-  model: z.string().optional().describe("`--model`."),
-  mode: z.enum(["plan", "ask"]).optional().describe("Read-only modes; omit for default edit-capable run."),
-  plan: z.boolean().optional().describe("Shorthand `--plan` when true."),
+    .describe("Cursor only: with `stream-json`, `--stream-partial-output`."),
+  model: z
+    .string()
+    .optional()
+    .describe("Cursor: `--model`. OpenCode: `-m` provider/model. Codex: `-m`."),
+  mode: z.enum(["plan", "ask"]).optional().describe("Cursor only: read-only modes."),
+  plan: z.boolean().optional().describe("Cursor only: `--plan` when true."),
   trust: z
     .boolean()
     .optional()
     .default(true)
-    .describe(
-      "`--trust` — default **true** for headless runs (no workspace trust prompt). Set **false** only if you rely on interactive trust.",
-    ),
-  force: z.boolean().optional().describe("`--force` / yolo where policy allows."),
+    .describe("Cursor only: `--trust` (default true)."),
+  force: z
+    .boolean()
+    .optional()
+    .describe("Cursor: `--force`. Codex: `--dangerously-bypass-approvals-and-sandbox`."),
   approve_mcp: z
     .boolean()
     .optional()
     .default(true)
-    .describe(
-      "`--approve-mcps` — default **true** so MCP servers are auto-approved in `-p` mode.",
-    ),
+    .describe("Cursor only: `--approve-mcps` (default true)."),
   sandbox: z
     .enum(["enabled", "disabled"])
     .optional()
     .default("disabled")
     .describe(
-      "`--sandbox` — default **disabled** so the agent can use network and shell (sandbox **enabled** is Cursor’s stricter mode and often blocks internet).",
+      "Cursor: `--sandbox` (default disabled). Codex: when disabled (default), passes `--full-auto`; when enabled, omits `--full-auto` / bypass for stricter defaults.",
     ),
-  cloud: z.boolean().optional().describe("`--cloud`."),
-  auto_chat: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe(
-      "When true (default) and neither `resume` nor `continue_chat` is set, run `agent create-chat` first and pass the new uuid as `--resume` so one-shot headless runs work without `control_chat_new`. Set false to preserve legacy no-session behavior.",
-    ),
-};
-
-export const controlAgentStartInput = {
-  ...controlAgentInput,
+  cloud: z.boolean().optional().describe("Cursor only: `--cloud`."),
   ...pokeCallbackFields,
 };
 
 export const controlRunStatusInput = {
-  run_id: z.string().min(1).describe("`run_id` from `control_agent_start`."),
+  run_id: z.string().min(1).describe("`run_id` from `control_agent`."),
 };
 
 export const controlRunOutputSliceInput = {
@@ -363,12 +375,10 @@ export const controlChatAroundInput = {
 };
 
 export const controlAgentCheckInput = {
-  provider: providerParam,
   cwd: cwdOptional,
 };
 
 export const controlSessionMetaInput = {
-  provider: providerParam.describe("Must match the session row’s adapter (cursor vs opencode)."),
   id: diskSessionId,
   count: z
     .boolean()
@@ -377,7 +387,7 @@ export const controlSessionMetaInput = {
 };
 
 export const controlDiskToCliInput = {
-  id: diskSessionId.describe("Cursor `sessions[].id`."),
+  id: diskSessionId.describe("`sessions[].id` — returns native session id for `control_agent.resume` when present."),
 };
 
 // ---------------------------------------------------------------------------
@@ -386,7 +396,21 @@ export const controlDiskToCliInput = {
 
 export const controlPlanOutputShape = {
   providers: z.array(z.unknown()),
+  /** Which CLI `control_agent` uses (`POKE_AGENTS_CONTROL`, default `cursor`). */
+  active_control: z.enum(["cursor", "opencode", "codex"]),
   cursor_agent_binary: z.string(),
+  opencode_cli_binary: z.string(),
+  codex_cli_binary: z.string(),
+  orchestration: z
+    .object({
+      http_mcp_and_tunnel: z.string(),
+      control_agent: z.string(),
+      large_disk_transcripts: z.string(),
+      network_bound_tools: z.string(),
+    })
+    .describe(
+      "How to orchestrate without MCP HTTP timeouts (tunnel/proxy 502): async agent runs, paginated disk transcripts.",
+    ),
   session_ids: z.record(z.string(), z.string()),
   env: z.record(z.string(), z.string()),
   session_stop: z
@@ -394,22 +418,7 @@ export const controlPlanOutputShape = {
       supported: z.literal(false),
       note: z.string(),
     })
-    .describe("Stopping an in-flight `agent -p` is not a CLI feature."),
-};
-
-export const controlChatNewOutputShape = {
-  ok: z.boolean(),
-  provider: z.enum(["cursor", "opencode"]),
-  cwd: z.string().optional(),
-  uuid: z
-    .string()
-    .optional()
-    .describe("Pass as `resume` in `control_agent` when ok."),
-  hint: z.string().optional(),
-  binary: z.string().optional(),
-  error: z.string().optional(),
-  stdout: z.string().optional(),
-  stderr: z.string().optional(),
+    .describe("Stopping an in-flight headless CLI run is not exposed as an MCP feature."),
 };
 
 const cursorAgentErrorClassification = z.enum([
@@ -426,41 +435,6 @@ const cursorAgentErrorClassification = z.enum([
 
 export const controlAgentOutputShape = {
   ok: z.boolean(),
-  provider: z.enum(["cursor", "opencode"]),
-  cwd: z.string().optional(),
-  exit_code: z.number().nullable().optional(),
-  signal: z.string().nullable().optional(),
-  timed_out: z.boolean().optional(),
-  stdout: z.string().optional(),
-  stderr: z.string().optional(),
-  hint: z
-    .string()
-    .optional()
-    .describe("Actionable context; also see `cursor_stderr_message` + `error_classification`."),
-  error_classification: cursorAgentErrorClassification
-    .optional()
-    .describe("Structured bucket for stderr (auth, rate_limit, network, …)."),
-  cursor_stderr_message: z
-    .string()
-    .optional()
-    .describe("Primary error line from Cursor (verbatim when possible)."),
-  stream_json_events: z
-    .array(z.unknown())
-    .optional()
-    .describe("Parsed NDJSON lines when `format` was `stream-json`."),
-  stream_json_truncated: z
-    .boolean()
-    .optional()
-    .describe("True if more stream lines existed than returned."),
-  auto_created_cli_chat_uuid: z
-    .string()
-    .optional()
-    .describe("Set when `auto_chat` created a session for this run."),
-  error: z.string().optional(),
-};
-
-export const controlAgentStartOutputShape = {
-  ok: z.boolean(),
   accepted: z.boolean().optional(),
   status: z
     .enum(["started", "failed_to_start"])
@@ -470,17 +444,33 @@ export const controlAgentStartOutputShape = {
   callback_registered: z
     .boolean()
     .optional()
-    .describe("True if a Poke callback URL+token was available for completion ping."),
-  provider: z.enum(["cursor", "opencode"]),
+    .describe(
+      "True if a Poke callback URL+token was available for the completion ping.",
+    ),
+  backend: z.enum(["cursor", "opencode", "codex"]),
   cwd: z.string().optional(),
-  resume_uuid: z.string().optional(),
-  auto_created_cli_chat_uuid: z.string().optional(),
+  resume_uuid: z
+    .string()
+    .optional()
+    .describe("Session id for the next `resume` (Cursor uuid, OpenCode `ses_…`, or Codex thread uuid)."),
+  auto_created_cli_chat_uuid: z
+    .string()
+    .optional()
+    .describe("Cursor only: new chat id from `create-chat` (same as `resume_uuid` for that turn)."),
   error: z.string().optional(),
   hint: z.string().optional(),
   error_classification: cursorAgentErrorClassification.optional(),
   cursor_stderr_message: z.string().optional(),
   stdout: z.string().optional(),
   stderr: z.string().optional(),
+  agent_template: z
+    .string()
+    .optional()
+    .describe("Echoed when `agent_template` was applied."),
+  agent_template_title: z
+    .string()
+    .optional()
+    .describe("Human title for the applied template."),
 };
 
 export const controlRunStatusOutputShape = {
@@ -492,7 +482,7 @@ export const controlRunStatusOutputShape = {
     .optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
-  provider: z.string().optional(),
+  backend: z.string().optional(),
   cwd: z.string().optional(),
   prompt_preview: z.string().optional(),
   resume_uuid: z.string().optional(),
@@ -532,7 +522,7 @@ export const controlChatSliceOutputShape = {
 
 export const controlAgentCheckOutputShape = {
   ok: z.boolean(),
-  provider: z.enum(["cursor", "opencode"]),
+  backend: z.enum(["cursor", "opencode", "codex"]),
   cwd: z.string().optional(),
   binary: z.string().optional(),
   about: z.string().optional(),
@@ -543,7 +533,6 @@ export const controlAgentCheckOutputShape = {
 export const controlSessionMetaOutputShape = {
   ok: z.boolean(),
   error: z.string().optional(),
-  provider: z.enum(["cursor", "opencode"]).optional(),
   adapter: z.string().optional(),
   session: sessionBlock.optional(),
   message_count: z.number().nullable().optional(),
@@ -563,67 +552,6 @@ export const controlDiskToCliOutputShape = {
   error: z.string().optional(),
 };
 
-export const webFetchInput = {
-  url: z.string().url().describe("Absolute http(s) URL to GET."),
-  max_bytes: z
-    .number()
-    .int()
-    .min(256)
-    .max(2_000_000)
-    .optional()
-    .describe("Cap stored body preview (default 500_000)."),
-  timeout_ms: z
-    .number()
-    .int()
-    .min(1000)
-    .max(120_000)
-    .optional()
-    .describe("Abort after this many ms (default 25_000)."),
-};
-
-export const webFetchOutputShape = {
-  ok: z.boolean(),
-  url: z.string().optional(),
-  status: z.number().optional(),
-  status_text: z.string().optional(),
-  content_type: z.string().optional(),
-  bytes_returned: z.number().optional(),
-  body_truncated: z.boolean().optional(),
-  body_preview: z.string().optional(),
-  error: z.string().optional(),
-  error_name: z.string().optional(),
-  error_classification: z.string().optional(),
-};
-
-const webSearchResult = z.object({
-  title: z.string().nullable(),
-  url: z.string().nullable(),
-  description: z.string().nullable(),
-});
-
-export const webSearchInput = {
-  query: z.string().min(1).describe("Search query."),
-  count: z
-    .number()
-    .int()
-    .min(1)
-    .max(20)
-    .optional()
-    .describe("Max results (default 8, cap 20)."),
-};
-
-export const webSearchOutputShape = {
-  ok: z.boolean(),
-  query: z.string().optional(),
-  provider: z.string().optional(),
-  results: z.array(webSearchResult).optional(),
-  status: z.number().optional(),
-  error: z.string().optional(),
-  setup: z.string().optional(),
-  body_preview: z.string().optional(),
-  error_classification: z.string().optional(),
-};
-
 const agentTemplateRow = z.object({
   id: z.string(),
   title: z.string(),
@@ -631,6 +559,10 @@ const agentTemplateRow = z.object({
   promptPreamble: z.string(),
   pokeHint: z.string(),
   built_in: z.boolean().optional(),
+  has_local_override: z
+    .boolean()
+    .optional()
+    .describe("True when this id exists in the custom JSON file (custom-only or override of a built-in)."),
 });
 
 export const agentTemplatesInput = {
@@ -644,7 +576,9 @@ export const agentTemplatesInput = {
   delete_id: z
     .string()
     .optional()
-    .describe("Required for delete. Built-in ids are rejected."),
+    .describe(
+      "Required for delete. Removes the row from custom storage. For built-in ids, deletes your override only (reverts to the shipped default).",
+    ),
 };
 
 export const agentTemplatesOutputShape = {

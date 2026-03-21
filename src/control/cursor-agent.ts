@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
 import type { SpawnResult } from "./types.js";
 import { stripAnsi } from "./strip-ansi.js";
 
@@ -78,12 +79,32 @@ export async function spawnCursorAgent(
   });
 }
 
+/** Default on: pass `--trust` with `create-chat` (set `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST=0` to disable). */
+function createChatUsesTrust(): boolean {
+  const v = process.env.POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "off") return false;
+  return true;
+}
+
+export type CursorCreateChatOptions = {
+  /** Passed as `agent --workspace <path> … create-chat` (resolved against `cwd`). */
+  workspace?: string;
+};
+
 /** `agent create-chat` → first UUID line on stdout */
-export async function cursorCreateEmptyChat(cwd: string): Promise<
+export async function cursorCreateEmptyChat(
+  cwd: string,
+  options?: CursorCreateChatOptions,
+): Promise<
   | { ok: true; chat_id: string }
   | { ok: false; error: string; stdout: string; stderr: string }
 > {
-  const r = await spawnCursorAgent(["create-chat"], { cwd });
+  const args: string[] = [];
+  if (createChatUsesTrust()) args.push("--trust");
+  const ws = options?.workspace?.trim();
+  if (ws) args.push("--workspace", path.resolve(cwd, ws));
+  args.push("create-chat");
+  const r = await spawnCursorAgent(args, { cwd });
   const text = stripAnsi(r.stdout);
   const firstLine = text.split(/\n/).find((l) => l.trim())?.trim() ?? "";
   if (UUID_RE.test(firstLine)) {
@@ -117,6 +138,8 @@ export async function cursorAgentStatusText(cwd: string): Promise<string> {
 
 export type CursorRunHeadlessParams = {
   cwd: string;
+  /** Optional `--workspace` for the CLI (resolved against `cwd`). */
+  workspace?: string;
   prompt: string;
   sessionId?: string;
   continueSession?: boolean;
@@ -142,6 +165,8 @@ function buildCursorHeadlessArgs(p: CursorRunHeadlessParams): string[] {
   }
   const trust = p.trust ?? true;
   if (trust) args.push("--trust");
+  const ws = p.workspace?.trim();
+  if (ws) args.push("--workspace", path.resolve(p.cwd, ws));
   if (p.force) args.push("--force");
   const approveMcps = p.approveMcps ?? true;
   if (approveMcps) args.push("--approve-mcps");

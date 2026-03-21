@@ -18,6 +18,64 @@ const skipWeb = process.env.POKE_AGENTS_SKIP_WEB === "1";
 const skipTunnel = process.env.POKE_AGENTS_SKIP_TUNNEL === "1";
 const strictPorts = process.env.POKE_AGENTS_STRICT_PORTS === "1";
 
+const tty = process.stderr.isTTY && !process.env.NO_COLOR;
+const c = tty
+  ? {
+      dim: (s) => `\x1b[2m${s}\x1b[0m`,
+      bold: (s) => `\x1b[1m${s}\x1b[0m`,
+      green: (s) => `\x1b[32m${s}\x1b[0m`,
+      cyan: (s) => `\x1b[36m${s}\x1b[0m`,
+      red: (s) => `\x1b[31m${s}\x1b[0m`,
+      yellow: (s) => `\x1b[33m${s}\x1b[0m`,
+    }
+  : {
+      dim: (s) => s,
+      bold: (s) => s,
+      green: (s) => s,
+      cyan: (s) => s,
+      red: (s) => s,
+      yellow: (s) => s,
+    };
+
+const bullet = tty ? "›" : ">";
+
+function line(msg = "") {
+  console.error(msg);
+}
+
+function step(msg) {
+  line(`  ${c.dim(bullet)} ${msg}`);
+}
+
+function errLine(msg) {
+  line(`  ${c.red(bullet)} ${msg}`);
+}
+
+function warnLine(msg) {
+  line(`  ${c.yellow(bullet)} ${msg}`);
+}
+
+function labelPad(label, width) {
+  return label.length >= width ? label : label + " ".repeat(width - label.length);
+}
+
+function printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb_) {
+  const w = 12;
+  line("");
+  line(`  ${c.bold("Services")}`);
+  line(`  ${c.dim(labelPad("MCP", w))}  ${c.cyan(mcpUrl)}`);
+  if (!skipWeb_) {
+    line(
+      `  ${c.dim(labelPad("Dashboard", w))}  ${c.cyan(`http://${mcpHost}:${webPort}`)}`,
+    );
+    line("");
+    line(
+      `  ${c.dim("The UI proxies /api to the MCP server; ports may differ each run if defaults are busy.")}`,
+    );
+  }
+  line("");
+}
+
 function preferredMcpPort() {
   const n = Number(
     process.env.POKE_AGENTS_MCP_PORT || process.env.POKE_AGENTS_PORT,
@@ -28,10 +86,6 @@ function preferredMcpPort() {
 function preferredWebPort() {
   const n = Number(process.env.POKE_AGENTS_WEB_PORT);
   return Number.isFinite(n) && n > 0 ? n : 3000;
-}
-
-function line(msg) {
-  console.error(msg);
 }
 
 /** Returns true if we could bind and release `port` on `host`. */
@@ -83,7 +137,7 @@ function waitForPort(port, host, timeoutMs) {
         if (Date.now() >= deadline) {
           reject(
             new Error(
-              `Timed out waiting for ${host}:${port}. Check firewall or logs.`,
+              `Timed out waiting for ${host}:${port} (firewall or startup error).`,
             ),
           );
           return;
@@ -96,11 +150,11 @@ function waitForPort(port, host, timeoutMs) {
 }
 
 if (!existsSync(runJs)) {
-  line("poke-agents: missing dist/. Run `npm run build` in the repo root.");
+  errLine("Missing dist/ — run npm run build from the repo root.");
   process.exit(1);
 }
 if (!skipWeb && !existsSync(join(webDir, "package.json"))) {
-  line("poke-agents: missing web/ app.");
+  errLine("Missing web/ application.");
   process.exit(1);
 }
 
@@ -122,9 +176,9 @@ let shuttingDown = false;
 function killAll() {
   if (shuttingDown) return;
   shuttingDown = true;
-  for (const c of children) {
-    if (!c.killed) {
-      c.kill("SIGTERM");
+  for (const c_ of children) {
+    if (!c_.killed) {
+      c_.kill("SIGTERM");
     }
   }
 }
@@ -140,27 +194,19 @@ async function main() {
     : await allocatePort(mcpHost, webWant, "Dashboard");
 
   if (mcpPort !== mcpWant) {
-    line(
-      `poke-agents: MCP port ${mcpWant} in use — using ${mcpPort} (set POKE_AGENTS_STRICT_PORTS=1 to forbid).`,
+    warnLine(
+      `MCP port ${mcpWant} busy — using ${mcpPort}. ${c.dim("Set POKE_AGENTS_STRICT_PORTS=1 to fail instead.")}`,
     );
   }
   if (!skipWeb && webPort !== webWant) {
-    line(
-      `poke-agents: dashboard port ${webWant} in use — using ${webPort} (set POKE_AGENTS_STRICT_PORTS=1 to forbid).`,
+    warnLine(
+      `Dashboard port ${webWant} busy — using ${webPort}. ${c.dim("Set POKE_AGENTS_STRICT_PORTS=1 to fail instead.")}`,
     );
   }
 
   const mcpOrigin = `http://${mcpHost}:${mcpPort}`;
   const mcpUrl = `${mcpOrigin}/mcp`;
-  line("");
-  line(`  MCP + API  ${mcpUrl}`);
-  if (!skipWeb) {
-    line(`  Dashboard  http://${mcpHost}:${webPort}`);
-    line(
-      `  (UI uses same-origin /api/* → proxied to ${mcpOrigin} — ports can change per run.)`,
-    );
-  }
-  line("");
+  printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb);
 
   const mcp = spawn(
     process.execPath,
@@ -177,17 +223,17 @@ async function main() {
   children.push(mcp);
 
   mcp.on("error", (err) => {
-    line(`poke-agents: MCP process error: ${err.message}`);
+    errLine(`MCP process: ${err.message}`);
     process.exit(1);
   });
   mcp.on("exit", (code, signal) => {
     if (shuttingDown) return;
     if (signal) {
-      line(`poke-agents: MCP stopped (${signal}).`);
+      errLine(`MCP stopped (${signal}).`);
       process.exit(1);
     }
     if (code !== 0 && code !== null) {
-      line("poke-agents: MCP exited with an error.");
+      errLine("MCP exited with an error.");
       process.exit(code ?? 1);
     }
   });
@@ -222,33 +268,33 @@ async function main() {
           },
         );
     if (!nextCli) {
-      line(
-        "poke-agents: next CLI not found beside web/ or repo root — using npm run start (install deps from repo root).",
+      warnLine(
+        "Next CLI not found next to web/ — using npm run start (install deps from repo root if needed).",
       );
     }
     children.push(web);
     web.on("error", (err) => {
-      line(`poke-agents: Next.js error: ${err.message}`);
+      errLine(`Dashboard: ${err.message}`);
       killAll();
       process.exit(1);
     });
     web.on("exit", (code) => {
       if (shuttingDown) return;
-      line("poke-agents: Next.js exited.");
+      errLine("Dashboard exited.");
       killAll();
       process.exit(code ?? 0);
     });
     try {
       await waitForPort(webPort, mcpHost, 60_000);
     } catch (e) {
-      line(`poke-agents: ${e instanceof Error ? e.message : String(e)}`);
+      errLine(e instanceof Error ? e.message : String(e));
       killAll();
       process.exit(1);
     }
   }
 
   if (!skipTunnel) {
-    line("  Starting Poke tunnel (leave this terminal open)…");
+    step(c.dim("Starting Poke tunnel — leave this terminal open."));
     line("");
     const tunnel = spawn(
       "npx",
@@ -257,9 +303,9 @@ async function main() {
     );
     children.push(tunnel);
     tunnel.on("error", (err) => {
-      line(`poke-agents: tunnel failed: ${err.message}`);
+      errLine(`Tunnel: ${err.message}`);
       if (err.code === "ENOENT") {
-        line("  Install Node from https://nodejs.org/ and ensure npx works.");
+        line(c.dim("    Ensure Node is installed and npx is available."));
       }
       killAll();
       process.exit(1);
@@ -269,9 +315,11 @@ async function main() {
       process.exit(code ?? 0);
     });
   } else {
-    line("  POKE_AGENTS_SKIP_TUNNEL=1 — not starting poke tunnel.");
-    line(
-      "  Press Ctrl+C to stop the MCP" + (skipWeb ? "." : " and dashboard."),
+    step(c.dim("POKE_AGENTS_SKIP_TUNNEL=1 — tunnel not started."));
+    step(
+      c.dim(
+        `Press Ctrl+C to stop${skipWeb ? "." : " MCP and dashboard."}`,
+      ),
     );
     line("");
   }
@@ -285,7 +333,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  line(`poke-agents: ${e instanceof Error ? e.message : String(e)}`);
+  errLine(e instanceof Error ? e.message : String(e));
   killAll();
   process.exit(1);
 });

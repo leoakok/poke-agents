@@ -25,14 +25,17 @@ npx @leoakok/poke-agents@latest
 | `/sessions` | Session list and filters |
 | `/chat` | Full-page transcript (`?s=` session id) |
 | `/live` | CLI `agent` processes (`ps` scan + SSE) |
+| `/mcp-traffic` | Live `POST /mcp` JSON-RPC request/response log (SSE) |
 | `/templates` | Built-in + custom agent templates |
 | `/settings` | Connectors and source toggles |
 
-Legacy URLs `/?s=<id>` redirect to `/chat?s=<id>`.
+Open transcripts with **`/chat?s=<session-id>`** (the app links use this form).
 
 ## Configuration
 
-The app proxies `/api/*` to the poke-agents HTTP server. Set **`POKE_AGENTS_MCP_ORIGIN`** (server) or **`NEXT_PUBLIC_POKE_AGENTS_ORIGIN`** (legacy) in `web/.env.local` if the API is not on `http://127.0.0.1:8740`.
+The app proxies `/api/*` to the poke-agents HTTP server. Set **`POKE_AGENTS_MCP_ORIGIN`** in `web/.env.local` if the API is not on `http://127.0.0.1:8740`.
+
+Traffic logging: the MCP process records each **`POST /mcp`** body and response into an in-memory ring buffer and streams it at **`/api/mcp-traffic/stream`**. Disable with **`POKE_AGENTS_MCP_TRAFFIC=0`** on the MCP server if you do not want payloads retained in RAM.
 
 ## Publishing
 

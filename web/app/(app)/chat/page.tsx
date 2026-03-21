@@ -5,7 +5,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<Skeleton className="h-[min(50dvh,24rem)] w-full" />}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Skeleton className="min-h-[min(40dvh,18rem)] w-full flex-1" />
+        </div>
+      }
+    >
       <ChatWorkspace />
     </Suspense>
   );

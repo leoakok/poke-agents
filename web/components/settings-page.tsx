@@ -85,7 +85,9 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   const toggle = useCallback(

@@ -6,6 +6,7 @@ import {
   ActivityIcon,
   HomeIcon,
   LayoutListIcon,
+  RadioIcon,
   SettingsIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -39,6 +40,12 @@ const NAV = [
     label: "Live",
     icon: ActivityIcon,
     tooltip: "CLI agent processes",
+  },
+  {
+    href: "/mcp-traffic",
+    label: "MCP log",
+    icon: RadioIcon,
+    tooltip: "Request/response traffic (live)",
   },
   {
     href: "/templates",

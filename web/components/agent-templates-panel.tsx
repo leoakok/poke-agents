@@ -73,7 +73,9 @@ export function AgentTemplatesPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   const openNew = () => {
@@ -84,7 +86,6 @@ export function AgentTemplatesPanel() {
   };
 
   const openEdit = (t: AgentTemplateRow) => {
-    if (t.built_in) return;
     setIsNew(false);
     setForm({
       id: t.id,
@@ -132,12 +133,13 @@ export function AgentTemplatesPanel() {
   };
 
   const remove = async (t: AgentTemplateRow) => {
-    if (t.built_in) return;
-    if (
-      !window.confirm(
-        `Remove custom template "${t.id}"? Built-ins cannot be deleted.`,
-      )
-    ) {
+    if (!t.has_local_override) {
+      return;
+    }
+    const msg = t.built_in
+      ? `Remove your on-disk override for built-in "${t.id}"? The shipped default will show again.`
+      : `Delete custom template "${t.id}"?`;
+    if (!window.confirm(msg)) {
       return;
     }
     const r = await mutateAgentTemplates({ delete_id: t.id });
@@ -156,12 +158,15 @@ export function AgentTemplatesPanel() {
           <div className="space-y-1">
             <CardTitle className="text-base">Agent templates</CardTitle>
             <CardDescription>
-              Custom rows persist on disk (see path below). Poke can also call
-              the MCP tool{" "}
+              Stored under the path below — survives <code className="font-mono text-xs">npx</code>{" "}
+              and package updates. Use in{" "}
+              <code className="font-mono text-xs">control_agent</code> via optional{" "}
+              <code className="font-mono text-xs">agent_template</code> (template{" "}
+              <code className="font-mono text-xs">id</code>). Poke can call MCP{" "}
               <code className="font-mono text-xs">agent_templates</code>{" "}
               (<code className="font-mono text-xs">list</code> /{" "}
               <code className="font-mono text-xs">upsert</code> /{" "}
-              <code className="font-mono text-xs">delete</code>).
+              <code className="font-mono text-xs">delete</code>) or the same HTTP API as this UI.
             </CardDescription>
           </div>
           <Button
@@ -212,9 +217,14 @@ export function AgentTemplatesPanel() {
                             Custom
                           </Badge>
                         )}
+                        {t.built_in && t.has_local_override ? (
+                          <Badge variant="outline" className="text-[0.65rem]">
+                            Overridden on disk
+                          </Badge>
+                        ) : null}
                       </div>
                       <code className="text-muted-foreground font-mono text-xs">
-                        template:{t.id}
+                        id: {t.id} · control_agent.agent_template=&quot;{t.id}&quot;
                       </code>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -231,29 +241,27 @@ export function AgentTemplatesPanel() {
                       >
                         Copy preamble
                       </Button>
-                      {!t.built_in ? (
-                        <>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1 text-xs"
-                            onClick={() => openEdit(t)}
-                          >
-                            <PencilIcon className="size-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive h-8 gap-1 text-xs"
-                            onClick={() => void remove(t)}
-                          >
-                            <TrashIcon className="size-3.5" />
-                            Delete
-                          </Button>
-                        </>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => openEdit(t)}
+                      >
+                        <PencilIcon className="size-3.5" />
+                        {t.built_in ? "Customize" : "Edit"}
+                      </Button>
+                      {t.has_local_override ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive h-8 gap-1 text-xs"
+                          onClick={() => void remove(t)}
+                        >
+                          <TrashIcon className="size-3.5" />
+                          {t.built_in ? "Reset" : "Delete"}
+                        </Button>
                       ) : null}
                     </div>
                   </div>
@@ -278,8 +286,8 @@ export function AgentTemplatesPanel() {
             </SheetTitle>
             <SheetDescription>
               {isNew
-                ? "Choose a stable id (letters, numbers, hyphens). It becomes template:id in prompts."
-                : "Updating keeps the same id."}
+                ? "Choose a stable id (letters, numbers, hyphens). Saved to the JSON file above."
+                : "Saving writes to your local JSON. Editing a built-in creates an on-disk override with the same id."}
             </SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-2">
@@ -324,7 +332,7 @@ export function AgentTemplatesPanel() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, promptPreamble: e.target.value }))
                 }
-                placeholder="Prefix for control_agent / Composer prompts"
+                placeholder="Prefix for control_agent (combined with agent_template)"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-medium">
@@ -335,7 +343,7 @@ export function AgentTemplatesPanel() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, pokeHint: e.target.value }))
                 }
-                placeholder="How automation should invoke this template"
+                placeholder="How automation should use this template"
               />
             </label>
             {sheetError ? (

@@ -14,10 +14,9 @@ export const EXPECTED_MCP_TOOL_NAMES = [
   "adapters",
   "sessions",
   "session",
+  "poke_agents_guide",
   "control_plan",
-  "control_chat_new",
   "control_agent",
-  "control_agent_start",
   "control_run_status",
   "control_run_output_slice",
   "control_chat_slice",
@@ -27,8 +26,6 @@ export const EXPECTED_MCP_TOOL_NAMES = [
   "control_session_meta",
   "control_disk_to_cli",
   "agent_templates",
-  "web_fetch",
-  "web_search",
 ] as const;
 
 function structured(r: unknown): Record<string, unknown> {
@@ -95,40 +92,135 @@ describe(
     assert.ok(typeof s.error === "string");
   });
 
+  test("poke_agents_guide (overview)", async () => {
+    const r = await client.callTool({
+      name: "poke_agents_guide",
+      arguments: {},
+    });
+    const s = structured(r);
+    assert.equal(s.ok, true);
+    assert.equal(s.topic, "overview");
+    assert.ok(typeof s.markdown === "string" && s.markdown.length > 100);
+    assert.ok(Array.isArray(s.topics));
+  });
+
+  test("poke_agents_guide (invalid topic falls back)", async () => {
+    const r = await client.callTool({
+      name: "poke_agents_guide",
+      arguments: { topic: "not-a-real-topic" },
+    });
+    const s = structured(r);
+    assert.equal(s.ok, true);
+    assert.equal(s.topic, "overview");
+  });
+
   test("control_plan", async () => {
     const r = await client.callTool({ name: "control_plan", arguments: {} });
     const s = structured(r);
     assert.ok(Array.isArray(s.providers));
     assert.ok(typeof s.cursor_agent_binary === "string");
+    assert.ok(typeof s.opencode_cli_binary === "string");
+    assert.ok(typeof s.codex_cli_binary === "string");
+    assert.ok(
+      s.active_control === "cursor" ||
+        s.active_control === "opencode" ||
+        s.active_control === "codex",
+    );
+    assert.ok(s.orchestration && typeof s.orchestration === "object");
+    assert.ok(
+      typeof (s.orchestration as { http_mcp_and_tunnel?: string })
+        .http_mcp_and_tunnel === "string",
+    );
   });
 
-  test("control_chat_new (opencode stub)", async () => {
-    const r = await client.callTool({
-      name: "control_chat_new",
-      arguments: { provider: "opencode" },
-    });
-    const s = structured(r);
-    assert.equal(s.ok, false);
-  });
-
-  test("control_agent (opencode stub)", async () => {
+  test("control_agent (invalid agent_template → fast fail, no CLI)", async () => {
     const r = await client.callTool({
       name: "control_agent",
-      arguments: { provider: "opencode", prompt: "noop" },
-    });
-    const s = structured(r);
-    assert.equal(s.ok, false);
-  });
-
-  test("control_agent_start (opencode stub)", async () => {
-    const r = await client.callTool({
-      name: "control_agent_start",
-      arguments: { provider: "opencode", prompt: "noop" },
+      arguments: {
+        prompt: "smoke-no-run",
+        agent_template: "__poke_agents_nonexistent_template_smoke__",
+      },
     });
     const s = structured(r);
     assert.equal(s.ok, false);
     assert.equal(s.accepted, false);
     assert.equal(s.status, "failed_to_start");
+    assert.ok(
+      typeof s.error === "string" && s.error.length > 0,
+      "expected error string",
+    );
+  });
+
+  test("control_agent (cursor, invalid binary → fast fail)", async () => {
+    const prevBin = process.env.POKE_AGENTS_CURSOR_AGENT_BIN;
+    const prevCtl = process.env.POKE_AGENTS_CONTROL;
+    process.env.POKE_AGENTS_CONTROL = "cursor";
+    process.env.POKE_AGENTS_CURSOR_AGENT_BIN =
+      process.platform === "win32" ? "cmd.exe" : "/usr/bin/false";
+    try {
+      const r = await client.callTool({
+        name: "control_agent",
+        arguments: { prompt: "smoke-no-run" },
+      });
+      const s = structured(r);
+      assert.equal(s.ok, false);
+      assert.equal(s.accepted, false);
+      assert.equal(s.status, "failed_to_start");
+      assert.equal(s.backend, "cursor");
+    } finally {
+      if (prevBin === undefined) delete process.env.POKE_AGENTS_CURSOR_AGENT_BIN;
+      else process.env.POKE_AGENTS_CURSOR_AGENT_BIN = prevBin;
+      if (prevCtl === undefined) delete process.env.POKE_AGENTS_CONTROL;
+      else process.env.POKE_AGENTS_CONTROL = prevCtl;
+    }
+  });
+
+  test("control_agent (codex, invalid binary → fast fail)", async () => {
+    const prevBin = process.env.POKE_AGENTS_CODEX_BIN;
+    const prevCtl = process.env.POKE_AGENTS_CONTROL;
+    process.env.POKE_AGENTS_CONTROL = "codex";
+    process.env.POKE_AGENTS_CODEX_BIN =
+      "/nonexistent/poke-agents-codex-smoke-missing";
+    try {
+      const r = await client.callTool({
+        name: "control_agent",
+        arguments: { prompt: "smoke-no-run" },
+      });
+      const s = structured(r);
+      assert.equal(s.ok, false);
+      assert.equal(s.accepted, false);
+      assert.equal(s.status, "failed_to_start");
+      assert.equal(s.backend, "codex");
+    } finally {
+      if (prevBin === undefined) delete process.env.POKE_AGENTS_CODEX_BIN;
+      else process.env.POKE_AGENTS_CODEX_BIN = prevBin;
+      if (prevCtl === undefined) delete process.env.POKE_AGENTS_CONTROL;
+      else process.env.POKE_AGENTS_CONTROL = prevCtl;
+    }
+  });
+
+  test("control_agent (opencode, invalid binary → fast fail)", async () => {
+    const prevBin = process.env.POKE_AGENTS_OPENCODE_BIN;
+    const prevCtl = process.env.POKE_AGENTS_CONTROL;
+    process.env.POKE_AGENTS_CONTROL = "opencode";
+    process.env.POKE_AGENTS_OPENCODE_BIN =
+      "/nonexistent/poke-agents-opencode-smoke-missing";
+    try {
+      const r = await client.callTool({
+        name: "control_agent",
+        arguments: { prompt: "smoke-no-run" },
+      });
+      const s = structured(r);
+      assert.equal(s.ok, false);
+      assert.equal(s.accepted, false);
+      assert.equal(s.status, "failed_to_start");
+      assert.equal(s.backend, "opencode");
+    } finally {
+      if (prevBin === undefined) delete process.env.POKE_AGENTS_OPENCODE_BIN;
+      else process.env.POKE_AGENTS_OPENCODE_BIN = prevBin;
+      if (prevCtl === undefined) delete process.env.POKE_AGENTS_CONTROL;
+      else process.env.POKE_AGENTS_CONTROL = prevCtl;
+    }
   });
 
   test("control_run_status (unknown run)", async () => {
@@ -176,19 +268,24 @@ describe(
     assert.equal(s.ok, false);
   });
 
-  test("control_agent_check (opencode stub)", async () => {
+  test("control_agent_check", async () => {
     const r = await client.callTool({
       name: "control_agent_check",
-      arguments: { provider: "opencode" },
+      arguments: {},
     });
     const s = structured(r);
-    assert.equal(s.ok, false);
+    assert.equal(s.ok, true);
+    assert.ok(
+      s.backend === "cursor" ||
+        s.backend === "opencode" ||
+        s.backend === "codex",
+    );
   });
 
   test("control_session_meta (invalid id)", async () => {
     const r = await client.callTool({
       name: "control_session_meta",
-      arguments: { provider: "cursor", id: "nope" },
+      arguments: { id: "nope" },
     });
     const s = structured(r);
     assert.equal(s.ok, false);
@@ -212,36 +309,5 @@ describe(
     assert.equal(s.ok, true);
     assert.ok(Array.isArray(s.templates));
     assert.ok(Array.isArray(s.built_in_ids));
-  });
-
-  test("web_fetch (example.com)", async () => {
-    const r = await client.callTool({
-      name: "web_fetch",
-      arguments: { url: "https://example.com", timeout_ms: 10_000 },
-    });
-    const s = structured(r);
-    assert.ok(typeof s.ok === "boolean");
-    if (s.ok === true) {
-      assert.equal(typeof s.status, "number");
-    } else {
-      assert.ok(typeof s.error === "string");
-    }
-  });
-
-  test("web_search (no API key or network)", async () => {
-    const r = await client.callTool({
-      name: "web_search",
-      arguments: { query: "poke-agents smoke" },
-    });
-    const s = structured(r);
-    assert.ok(typeof s.ok === "boolean");
-    if (s.ok === false) {
-      assert.ok(
-        typeof s.error === "string" || typeof s.setup === "string",
-        "expected error or setup when search fails",
-      );
-    } else {
-      assert.ok(Array.isArray(s.results));
-    }
   });
 });

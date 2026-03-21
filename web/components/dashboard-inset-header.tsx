@@ -33,6 +33,10 @@ const ROUTES: Record<
     title: "Settings",
     description: "Connectors and session sources",
   },
+  "/mcp-traffic": {
+    title: "MCP traffic",
+    description: "Live JSON-RPC to POST /mcp",
+  },
 };
 
 export function DashboardInsetHeader() {

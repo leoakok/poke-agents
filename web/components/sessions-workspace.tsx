@@ -24,7 +24,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -70,14 +69,18 @@ export function SessionsWorkspace() {
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    setAppOrigin(typeof window !== "undefined" ? window.location.origin : "");
+    queueMicrotask(() => {
+      setAppOrigin(typeof window !== "undefined" ? window.location.origin : "");
+    });
   }, []);
 
   useEffect(() => {
     if (connectors.length === 0) return;
-    setEnabledConnectorIds(
-      loadEnabledConnectorIds(connectors.map((c) => c.id)),
-    );
+    queueMicrotask(() => {
+      setEnabledConnectorIds(
+        loadEnabledConnectorIds(connectors.map((c) => c.id)),
+      );
+    });
   }, [connectors]);
 
   useEffect(() => {
@@ -173,7 +176,9 @@ export function SessionsWorkspace() {
     liveRuntime?.ok === true ? liveRuntime.processes.length : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex max-w-xl flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
@@ -369,7 +374,7 @@ export function SessionsWorkspace() {
                 .
               </p>
             ) : (
-              <div className="h-[min(420px,50vh)] overflow-y-auto overscroll-contain rounded-lg border">
+              <div className="rounded-lg border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -455,39 +460,39 @@ export function SessionsWorkspace() {
             </CardHeader>
             {showArchived ? (
               <CardContent>
-                <ScrollArea className="max-h-56 rounded-lg border">
-                  <div className="flex flex-col gap-1 p-2">
-                    {archivedSessions.map((s) => (
-                      <div
-                        key={s.id}
-                        className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-muted-foreground">
-                            {s.title || "(untitled)"}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            {s.source}
-                          </div>
+                <div className="flex flex-col gap-1 rounded-lg border p-2">
+                  {archivedSessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-muted-foreground">
+                          {s.title || "(untitled)"}
                         </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 shrink-0"
-                          onClick={() => unarchiveSession(s.id)}
-                        >
-                          <ArchiveRestoreIcon className="size-4" />
-                          Restore
-                        </Button>
+                        <div className="text-muted-foreground text-xs">
+                          {s.source}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0"
+                        onClick={() => unarchiveSession(s.id)}
+                      >
+                        <ArchiveRestoreIcon className="size-4" />
+                        Restore
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             ) : null}
           </Card>
         ) : null}
+      </div>
+        </div>
       </div>
     </div>
   );

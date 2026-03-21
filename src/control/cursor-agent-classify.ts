@@ -129,11 +129,16 @@ function hintForClassification(
     case "network_unreachable":
       return `Network reachability — ${JSON.stringify(primary)}. Check connectivity, DNS, VPN, and firewall.`;
     case "session_headless":
-      return `Headless / session context — ${JSON.stringify(primary)}. With poke-agents, omit \`continue_chat\` and keep default \`auto_chat: true\` so a CLI chat is created automatically, or pass an explicit \`resume\` uuid.`;
+      return `Headless / session context — ${JSON.stringify(primary)}. With poke-agents, omit \`resume\` and \`continue_chat\` to start a new CLI chat automatically, or pass an explicit \`resume\` uuid to continue.`;
     case "timeout":
       return `Timed out — ${JSON.stringify(primary)}. Increase POKE_AGENTS_AGENT_TIMEOUT_MS or simplify the prompt.`;
     case "permission_denied":
-      return `Permission denied — ${JSON.stringify(primary)}. Fix filesystem permissions or sandbox policy for the cwd.`;
+      return [
+        `Permission denied — ${JSON.stringify(primary)}.`,
+        "Check: correct `cwd` and optional `workspace` (CLI `--workspace`) for the repo root;",
+        "defaults `trust: true`, `sandbox: \"disabled\"`, `approve_mcp: true` (and `force: true` if you need shell/commands);",
+        "filesystem EACCES on the project path; and Cursor workspace trust if stderr mentions trust.",
+      ].join(" ");
     case "unknown":
       return undefined;
   }

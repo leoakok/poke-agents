@@ -82,8 +82,8 @@ export type AgentProcessRow = {
   elapsed: string;
   command: string;
   mode: "headless" | "interactive" | "other";
-  /** Present from server ≥0.2 — Cursor `agent`, OpenCode `run`, or Codex `exec`. */
-  cli?: "cursor-agent" | "opencode" | "codex" | "other";
+  /** Present from server ≥0.2 — Cursor `agent`, OpenCode `run`, Codex `exec`, or Claude Code `claude -p`. */
+  cli?: "cursor-agent" | "opencode" | "codex" | "claude-code" | "other";
 };
 
 export type AgentRuntimeResponse =

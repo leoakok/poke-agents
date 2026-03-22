@@ -10,7 +10,7 @@ Use **Agent-MCP** (or any MCP-capable runner) as a **separate process** that:
 2. Implements the **outer loop** (plan → call tools → branch).
 3. Calls `agent_templates` / **`control_agent`** (async + `run_id` + optional Poke callback) / `session` (or paginated **`control_chat_*`**) as **steps** in that loop.
 
-In that layout, **orchestration logic lives in the MCP client** (Agent-MCP or your own script), and poke-agents remains the **tool server** for Cursor/OpenCode session IO and template storage.
+In that layout, **orchestration logic lives in the MCP client** (Agent-MCP or your own script), and poke-agents remains the **tool server** for Cursor/OpenCode/Codex/Claude session IO and template storage.
 
 ## “Agent Orcha” / custom orchestrators
 
@@ -26,7 +26,7 @@ The Next app under `web/` is a **human UI** on top of the HTTP API. It is not re
 
 ## Headless CLI vs web access
 
-Headless **`control_agent`** uses **`POKE_AGENTS_CONTROL`**: **`cursor`** → `agent -p` (defaults avoid Cursor’s network-blocking **sandbox**), **`opencode`** → `opencode run`, **`codex`** → `codex exec`. None of these are GUI browsers. For HTTP or search, the **orchestrator** (e.g. **Poke**) should use **its own** fetch/search, then pass text into `control_agent.prompt`.
+Headless **`control_agent`** uses **`POKE_AGENTS_CONTROL`**: **`cursor`** → `agent -p` (defaults avoid Cursor’s network-blocking **sandbox**), **`opencode`** → `opencode run`, **`codex`** → `codex exec`, **`claude`** → Claude Code `claude -p`. None of these are GUI browsers. For HTTP or search, the **orchestrator** (e.g. **Poke**) should use **its own** fetch/search, then pass text into `control_agent.prompt`.
 
 **Async runs:** **`control_agent`** returns immediately with a **`run_id`**; poll **`control_run_status`** and **`control_run_output_slice`**, or configure Poke’s HTTP MCP **`X-Poke-Callback-Url`** / **`X-Poke-Callback-Token`** (or stdio tool args) for a small completion ping — large stdout/stderr stay pull-based, not in the webhook body.
 

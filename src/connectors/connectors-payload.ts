@@ -20,7 +20,7 @@ export async function buildConnectorsPayload(): Promise<{
 }> {
   const allowed = getAllowedEditorIds();
   const byId = new Map(allConnectors.map((c) => [c.id, c]));
-  const coreOrder = ["cursor", "opencode", "codex"] as const;
+  const coreOrder = ["cursor", "opencode", "codex", "claude"] as const;
   const seen = new Set<string>();
 
   async function rowFor(c: (typeof allConnectors)[number]): Promise<ConnectorJsonRow> {

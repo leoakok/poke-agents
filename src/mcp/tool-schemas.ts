@@ -16,7 +16,7 @@ export const diskSessionId = z
   .string()
   .min(1)
   .describe(
-    "Exact **`sessions[].id`** from **`sessions`** — opaque string, do not construct by hand. Same value for **`session`**, **`control_chat_*`**, **`control_session_meta`**, **`control_disk_to_cli`**. **Not** a Cursor/OpenCode/Codex CLI uuid (use **`control_disk_to_cli`** or **`control_agent.resume_uuid`** for that).",
+    "Exact **`sessions[].id`** from **`sessions`** — opaque string, do not construct by hand. Same value for **`session`**, **`control_chat_*`**, **`control_session_meta`**, **`control_disk_to_cli`**. **Not** a Cursor/OpenCode/Codex/Claude CLI uuid (use **`control_disk_to_cli`** or **`control_agent.resume_uuid`** for that).",
   );
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ export const READ = {
   adapters: {
     title: "Adapters (profile + health)",
     description:
-      "**No parameters.** Always lists **cursor**, **opencode**, and **codex** disk adapters first (with **`available`** / **`detail`** / **`server_enabled`**), then any other editors in **`POKE_AGENTS_EDITORS`**. **`server_enabled: false`** means that id is not merged into **`sessions`** until you add it to the env and restart. Call **before `sessions`** when debugging empty lists.",
+      "**No parameters.** Always lists **cursor**, **opencode**, **codex**, and **claude** disk adapters first (with **`available`** / **`detail`** / **`server_enabled`**), then any other editors in **`POKE_AGENTS_EDITORS`**. **`server_enabled: false`** means that id is not merged into **`sessions`** until you add it to the env and restart. Call **before `sessions`** when debugging empty lists.",
   },
   sessions: {
     title: "Sessions (disk)",
@@ -122,7 +122,7 @@ export const sessionInput = {
 // ---------------------------------------------------------------------------
 
 const connectorRow = z.object({
-  id: z.string().describe("Stable adapter id (e.g. cursor, opencode, codex)."),
+  id: z.string().describe("Stable adapter id (e.g. cursor, opencode, codex, claude)."),
   display_name: z.string().describe("Human label for UI."),
   available: z
     .boolean()
@@ -135,7 +135,7 @@ const connectorRow = z.object({
     .boolean()
     .optional()
     .describe(
-      "When false, this **id** is not in **`POKE_AGENTS_EDITORS`** on the server — **`sessions`** will not merge it until the env is updated. Core editors (**cursor**, **opencode**, **codex**) are always listed for discovery.",
+      "When false, this **id** is not in **`POKE_AGENTS_EDITORS`** on the server — **`sessions`** will not merge it until the env is updated. Core editors (**cursor**, **opencode**, **codex**, **claude**) are always listed for discovery.",
     ),
 });
 
@@ -177,7 +177,7 @@ export const adaptersOutput = {
   connectors: z
     .array(connectorRow)
     .describe(
-      "Disk session adapters: **cursor**, **opencode**, and **codex** always appear first, then any other **`POKE_AGENTS_EDITORS`** entries. Each row includes **server_enabled** when present.",
+      "Disk session adapters: **cursor**, **opencode**, **codex**, and **claude** always appear first, then any other **`POKE_AGENTS_EDITORS`** entries. Each row includes **server_enabled** when present.",
     ),
   editors: z
     .array(z.string())
@@ -230,12 +230,12 @@ export const CONTROL = {
   agent: {
     title: "Headless agent",
     description:
-      "Runs the configured headless CLI (**`POKE_AGENTS_CONTROL`**: `cursor` = Cursor `agent -p`, `opencode` = `opencode run`, `codex` = `codex exec`) and **always** returns immediately with **`run_id`** — the MCP response is **not** the agent’s final answer. On success, **`poke_completion_notice`** and **`will_post_completion_to_poke`** tell Poke whether a **completion HTTP POST** will fire when the CLI exits. Poll **`control_run_status`** / **`control_run_output_slice`** if no callback. No `provider` argument. Optional **`agent_template`**: `id` from **`agent_templates`** (`list`) prepends `promptPreamble` to `prompt`. **Cursor:** for prompts that must **run terminal commands** or fully automated edits, set **`force: true`**; **`trust`** (default true) only marks the workspace trusted and does not replace **`force`**. **Read-only Cursor:** `mode: \"plan\"` or `mode: \"ask\"`, or `plan: true`. **Normal edit+shell Cursor:** omit `mode` and `plan`. **OpenCode / Codex:** many Cursor-only fields are ignored; see `control_plan.providers`. Auth: env only (`CURSOR_API_KEY`, OpenCode auth, `codex login`).",
+      "Runs the configured headless CLI (**`POKE_AGENTS_CONTROL`**: `cursor` = Cursor `agent -p`, `opencode` = `opencode run`, `codex` = `codex exec`, `claude` = Claude Code `claude -p`) and **always** returns immediately with **`run_id`** — the MCP response is **not** the agent’s final answer. On success, **`poke_completion_notice`** and **`will_post_completion_to_poke`** tell Poke whether a **completion HTTP POST** will fire when the CLI exits. Poll **`control_run_status`** / **`control_run_output_slice`** if no callback. No `provider` argument. Optional **`agent_template`**: `id` from **`agent_templates`** (`list`) prepends `promptPreamble` to `prompt`. **Cursor:** for prompts that must **run terminal commands** or fully automated edits, set **`force: true`**; **`trust`** (default true) only marks the workspace trusted and does not replace **`force`**. **Read-only Cursor:** `mode: \"plan\"` or `mode: \"ask\"`, or `plan: true`. **Normal edit+shell Cursor:** omit `mode` and `plan`. **OpenCode / Codex / Claude:** many Cursor-only fields are ignored; see `control_plan.providers`. Auth: env only (`CURSOR_API_KEY`, OpenCode auth, `codex login`, Claude Code `claude auth`).",
   },
   agent_check: {
     title: "CLI check",
     description:
-      "Lightweight probe of the **active** CLI (**`POKE_AGENTS_CONTROL`**). **Cursor:** `about` + `status` text (auth). **OpenCode:** version + `auth list`. **Codex:** version + login status. Use **`cwd`** when the user’s project directory matters for the probe. Call **before** spending tokens on **`control_agent`** if you suspect missing binary or auth.",
+      "Lightweight probe of the **active** CLI (**`POKE_AGENTS_CONTROL`**). **Cursor:** `about` + `status` text (auth). **OpenCode:** version + `auth list`. **Codex:** version + login status. **Claude Code:** `--version` + `auth status` text. Use **`cwd`** when the user’s project directory matters for the probe. Call **before** spending tokens on **`control_agent`** if you suspect missing binary or auth.",
   },
   session_meta: {
     title: "Disk session metadata",
@@ -245,7 +245,7 @@ export const CONTROL = {
   disk_to_cli: {
     title: "Disk id → headless resume id",
     description:
-      "Maps a **disk** **`sessions[].id`** to the native CLI session id (**`uuid`**) stored as **`composerId`** (Cursor uuid, OpenCode **`ses_…`**, Codex thread uuid). Pass **`uuid`** as **`control_agent.resume`** when non-null. If **`uuid`** is null, that disk chat has no CLI id yet — start a **new** headless session or inspect **`keys`** / **`hint`**.",
+      "Maps a **disk** **`sessions[].id`** to the native CLI session id (**`uuid`**) stored as **`composerId`** (Cursor uuid, OpenCode **`ses_…`**, Codex thread uuid, Claude Code session id when present). Pass **`uuid`** as **`control_agent.resume`** when non-null. If **`uuid`** is null, that disk chat has no CLI id yet — start a **new** headless session or inspect **`keys`** / **`hint`**.",
   },
   run_status: {
     title: "Async run status",
@@ -295,7 +295,7 @@ export const controlAgentInput = {
     .string()
     .min(1)
     .describe(
-      "Instruction for the headless CLI (after any `agent_template` preamble). **`POKE_AGENTS_CONTROL`** picks the binary: Cursor `agent -p`, OpenCode `opencode run`, Codex `codex exec`. If the task needs **real shell execution** or non-interactive automation (Cursor), set **`force: true`** — otherwise the agent may answer without running commands.",
+      "Instruction for the headless CLI (after any `agent_template` preamble). **`POKE_AGENTS_CONTROL`** picks the binary: Cursor `agent -p`, OpenCode `opencode run`, Codex `codex exec`, Claude Code `claude -p`. If the task needs **real shell execution** or non-interactive automation (Cursor), set **`force: true`** — otherwise the agent may answer without running commands. **Claude:** **`force: true`** maps to **`--dangerously-skip-permissions`** (trusted environments only).",
     ),
   agent_template: z
     .string()
@@ -313,19 +313,19 @@ export const controlAgentInput = {
     .string()
     .optional()
     .describe(
-      "Cursor: passed as `--workspace` (path resolved relative to `cwd`). OpenCode / Codex: subdirectory under `cwd` used as the run root (Codex: `--cd`).",
+      "Cursor: passed as `--workspace` (path resolved relative to `cwd`). OpenCode / Codex: subdirectory under `cwd` used as the run root (Codex: `--cd`). Claude Code: extra directory passed as `--add-dir` (resolved path).",
     ),
   resume: z
     .string()
     .optional()
     .describe(
-      "Resume an existing headless session: Cursor → `--resume` uuid; OpenCode → `ses_…`; Codex → thread uuid for `codex exec resume`. **Omit** `resume` and `continue_chat` to start a **new** session. Never pass a disk `sessions[].id` here — map with **`control_disk_to_cli`**.",
+      "Resume an existing headless session: Cursor → `--resume` uuid; OpenCode → `ses_…`; Codex → thread uuid for `codex exec resume`; Claude Code → `--resume` session id. **Omit** `resume` and `continue_chat` to start a **new** session. Never pass a disk `sessions[].id` here — map with **`control_disk_to_cli`**.",
     ),
   continue_chat: z
     .boolean()
     .optional()
     .describe(
-      "Cursor: `--continue` previous headless session. OpenCode: `--continue`. Codex: `resume --last`. Ignored when `resume` is set.",
+      "Cursor: `--continue` previous headless session. OpenCode: `--continue`. Codex: `resume --last`. Claude Code: `--continue` with `-p`. Ignored when `resume` is set.",
     ),
   format: z
     .enum(["text", "json", "stream-json"])
@@ -526,13 +526,14 @@ export const controlPlanOutputShape = {
     .describe("Per-backend capability matrix + human notes (shape may evolve)."),
   /** Which CLI `control_agent` uses (`POKE_AGENTS_CONTROL`, default `cursor`). */
   active_control: z
-    .enum(["cursor", "opencode", "codex"])
+    .enum(["cursor", "opencode", "codex", "claude"])
     .describe("Which CLI **`control_agent`** / **`control_agent_check`** use right now."),
   cursor_agent_binary: z
     .string()
     .describe("Resolved **`agent`** executable path or label for Cursor."),
   opencode_cli_binary: z.string().describe("Resolved **`opencode`** binary path or label."),
   codex_cli_binary: z.string().describe("Resolved **`codex`** binary path or label."),
+  claude_cli_binary: z.string().describe("Resolved **`claude`** (Claude Code) binary path or label."),
   orchestration: z
     .object({
       http_mcp_and_tunnel: z.string(),
@@ -605,7 +606,7 @@ export const controlAgentOutputShape = {
     .describe(
       "Human-readable reminder for Poke/models: this response is only the **start** of a background run; completion is delivered via callback or polling. Present when **`status` is `started`**.",
     ),
-  backend: z.enum(["cursor", "opencode", "codex"]),
+  backend: z.enum(["cursor", "opencode", "codex", "claude"]),
   cwd: z.string().optional(),
   resume_uuid: z
     .string()
@@ -712,7 +713,7 @@ export const controlChatSliceOutputShape = {
 
 export const controlAgentCheckOutputShape = {
   ok: z.boolean(),
-  backend: z.enum(["cursor", "opencode", "codex"]),
+  backend: z.enum(["cursor", "opencode", "codex", "claude"]),
   cwd: z.string().optional(),
   binary: z.string().optional().describe("Resolved CLI binary path when known."),
   about: z.string().optional().describe("Cursor **`about`** text; may be empty for other CLIs."),

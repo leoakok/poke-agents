@@ -110,7 +110,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
               "",
               "**Read path (disk):** `adapters` → `sessions` → `session` (param `id`). Respects `POKE_AGENTS_EDITORS`.",
               "",
-              "**Control path (CLI):** No `provider` on tools — set **`POKE_AGENTS_CONTROL`** to **`cursor`** (default, Cursor `agent -p`), **`opencode`** (`opencode run`), or **`codex`** (`codex exec`). Call **`control_plan`** for `active_control`, binaries, and env. **`control_agent`** **always** returns immediately with **`run_id`** — read **`poke_completion_notice`** and **`will_post_completion_to_poke`** in the structured result: Poke is **pinged when the CLI exits** if **`will_post_completion_to_poke`** is true (HTTP **`X-Poke-Callback-Url`** + **`X-Poke-Callback-Token`** or stdio **`poke_callback_*`**). Otherwise poll **`control_run_status`** / **`control_run_output_slice`**. Optional **`agent_template`**: template **`id`** from **`agent_templates`** (`list`) prepends **`promptPreamble`**. **Cursor:** **`trust`** (default) = workspace trust only; for prompts that must **run shell commands**, set **`force: true`**. **`approve_mcp`** = MCP servers, not shell. Omit **`mode`** / **`plan`** for normal coding. Codex: see `control_plan` for `sandbox`/`force`. Map disk → **`resume`** with **`control_disk_to_cli`**.",
+              "**Control path (CLI):** No `provider` on tools — set **`POKE_AGENTS_CONTROL`** to **`cursor`** (default, Cursor `agent -p`), **`opencode`** (`opencode run`), **`codex`** (`codex exec`), or **`claude`** (Claude Code `claude -p`). Call **`control_plan`** for `active_control`, binaries, and env. **`control_agent`** **always** returns immediately with **`run_id`** — read **`poke_completion_notice`** and **`will_post_completion_to_poke`** in the structured result: Poke is **pinged when the CLI exits** if **`will_post_completion_to_poke`** is true (HTTP **`X-Poke-Callback-Url`** + **`X-Poke-Callback-Token`** or stdio **`poke_callback_*`**). Otherwise poll **`control_run_status`** / **`control_run_output_slice`**. Optional **`agent_template`**: template **`id`** from **`agent_templates`** (`list`) prepends **`promptPreamble`**. **Cursor:** **`trust`** (default) = workspace trust only; for prompts that must **run shell commands**, set **`force: true`**. **`approve_mcp`** = MCP servers, not shell. Omit **`mode`** / **`plan`** for normal coding. Codex / Claude Code: see `control_plan` for `sandbox`/`force` / permissions. Map disk → **`resume`** with **`control_disk_to_cli`**.",
               "",
               "**Agent templates:** **`agent_templates`** MCP tool (`list` / `upsert` / `delete`) and dashboard **`/templates`**. Custom data lives in **`~/.poke-agents/agent-templates.json`** (optional **`POKE_AGENTS_TEMPLATES_PATH`**) — it survives **`npx`** and package upgrades.",
               "",
@@ -180,7 +180,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
   mcp.registerPrompt(
     "workflow_cursor_headless_task",
     {
-      title: "Run headless agent (Cursor, OpenCode, or Codex)",
+      title: "Run headless agent (Cursor, OpenCode, Codex, or Claude Code)",
       description: "Check CLI (active backend from POKE_AGENTS_CONTROL), then control_agent.",
       argsSchema: {
         goal: z.string().min(1).describe("Single instruction for the agent"),
@@ -206,7 +206,7 @@ export function registerPokeAgentsPromptsAndResources(mcp: McpServer): void {
           content: {
             type: "text",
             text: [
-              "Run a **headless agent** task via poke-agents. Active CLI: **`POKE_AGENTS_CONTROL`** (`cursor` = Cursor `agent`, `opencode` = `opencode run`, `codex` = `codex exec`).",
+              "Run a **headless agent** task via poke-agents. Active CLI: **`POKE_AGENTS_CONTROL`** (`cursor` = Cursor `agent`, `opencode` = `opencode run`, `codex` = `codex exec`, `claude` = Claude Code `claude -p`).",
               "",
               "1. Call `control_plan` if needed; call `control_agent_check` to verify the CLI.",
               agent_template

@@ -140,13 +140,13 @@ export function OverviewGuides() {
 
         <Separator />
 
-        <GuideBlock title="Headless control_agent (Cursor / OpenCode / Codex)">
+        <GuideBlock title="Headless control_agent (Cursor / OpenCode / Codex / Claude Code)">
           <ul className="list-disc space-y-2 pl-4">
             <li>
               Env <InlineCode>POKE_AGENTS_CONTROL</InlineCode> chooses the CLI:{" "}
               <InlineCode>cursor</InlineCode> (default),{" "}
-              <InlineCode>opencode</InlineCode>, or <InlineCode>codex</InlineCode>
-              .
+              <InlineCode>opencode</InlineCode>, <InlineCode>codex</InlineCode>,
+              or <InlineCode>claude</InlineCode>.
             </li>
             <li>
               <InlineCode>control_agent</InlineCode>{" "}

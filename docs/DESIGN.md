@@ -40,12 +40,13 @@ Several adapters use **`better-sqlite3`** (native). It is declared in the root `
 
 ## MCP server
 
-Implemented under `src/mcp/`: **stdio** (default) for editor MCP clients; **`--http`** + `/mcp` for Poke (`poke tunnel`). Read tools match [`MCP_TOOLS.md`](MCP_TOOLS.md); listing respects [`profile.ts`](../src/profile.ts) (`POKE_AGENTS_EDITORS`, default `cursor,opencode,codex`).
+Implemented under `src/mcp/`: **stdio** (default) for editor MCP clients; **`--http`** + `/mcp` for Poke (`poke tunnel`). Read tools match [`MCP_TOOLS.md`](MCP_TOOLS.md); listing respects [`profile.ts`](../src/profile.ts) (`POKE_AGENTS_EDITORS`, default `cursor,opencode,codex,claude`).
 
 ## Control plane (`src/control/`)
 
-- **Backend selection:** **`POKE_AGENTS_CONTROL`** (`cursor` default \| `opencode` \| `codex`). Control MCP tools do **not** take a `provider` parameter.
+- **Backend selection:** **`POKE_AGENTS_CONTROL`** (`cursor` default \| `opencode` \| `codex` \| `claude`). Control MCP tools do **not** take a `provider` parameter.
 - **Cursor:** spawn **`agent`** ([docs](https://cursor.com/docs/cli/overview)) — `create-chat`, headless `-p`, `about` / `status`.
 - **OpenCode:** spawn **`opencode run`** (JSON / stream-json), version/auth checks for `control_agent_check`.
 - **Codex:** spawn **`codex exec`** / **`codex exec resume`** ([docs](https://developers.openai.com/codex)), `--version` + **`codex login status`** for `control_agent_check`.
+- **Claude Code:** spawn **`claude -p`** (print mode; optional `--bare` via env), `--version` + **`claude auth status`** for `control_agent_check`.
 - **Session status** combines disk decode (same encoding as read tools) with optional full message count.

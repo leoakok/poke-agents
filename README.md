@@ -21,7 +21,7 @@ cd agents   # repo root if this repo is only poke-agents
 npm install
 npm run build
 npm test              # MCP in-process smoke (every tool; no real CLIs)
-npm run test:smoke:control   # Cursor + OpenCode + Codex headless “hi” round-trip (needs all CLIs + auth)
+npm run test:smoke:control   # headless “hi” round-trip per installed CLI (skips missing binaries by default)
 npm run test:smoke:all       # both smokes in one command
 npm run lint          # dashboard ESLint (web/)
 npm run start:poke
@@ -72,7 +72,7 @@ npm start
 npm run start:http
 ```
 
-**Profile:** `POKE_AGENTS_EDITORS` defaults to **`cursor,opencode,codex`**. Add or remove comma-separated `editor.name` values for other vendored adapters.
+**Profile:** `POKE_AGENTS_EDITORS` defaults to **`cursor,opencode,codex,claude`**. Add or remove comma-separated `editor.name` values for other vendored adapters.
 
 Editor wiring: [`docs/SETUP_POKE_CURSOR_OPENCODE.md`](docs/SETUP_POKE_CURSOR_OPENCODE.md).
 

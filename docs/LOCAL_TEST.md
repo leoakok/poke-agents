@@ -45,10 +45,10 @@ Dashboard: [http://127.0.0.1:3000](http://127.0.0.1:3000) · MCP: [http://127.0.
 | Command | What it does |
 |--------|----------------|
 | `npm test` | In-process MCP: lists/calls every tool with safe args (no real Cursor/OpenCode/Codex runs). |
-| `npm run test:smoke:control` | **Three** headless runs via `control_agent`: **`POKE_AGENTS_CONTROL`** cycled to `cursor`, `opencode`, and `codex`. Each gets a short “user says hi” style prompt and must return output containing **`POKE_SMOKE_ACK`**. Requires each CLI on `PATH` (or `POKE_AGENTS_CURSOR_AGENT_BIN` / `POKE_AGENTS_OPENCODE_BIN` / `POKE_AGENTS_CODEX_BIN`) and working auth. Default timeout **180s** per run (`POKE_AGENTS_SMOKE_AGENT_TIMEOUT_MS` overrides). |
+| `npm run test:smoke:control` | Up to **four** headless runs (`cursor`, `opencode`, `codex`, `claude`). **Missing CLI binaries are skipped by default** so the suite passes with a subset installed. Each run that executes must return **`POKE_SMOKE_ACK`**. Bin overrides: `POKE_AGENTS_*_BIN`. Timeout **180s** per run (`POKE_AGENTS_SMOKE_AGENT_TIMEOUT_MS`). |
 | `npm run test:smoke:all` | Runs both rows above in one `node --test` invocation. |
 
-If you only have some CLIs installed, use **`POKE_AGENTS_SMOKE_PARTIAL=1`** with `test:smoke:control` / `test:smoke:all` to **skip** missing backends instead of failing.
+**Strict (fail if any of the four CLIs is missing):** `POKE_AGENTS_SMOKE_PARTIAL=0 npm run test:smoke:control`
 
 ### Web only (dev)
 
@@ -143,7 +143,7 @@ Remove `--build` after the first successful compile if you prefer faster startup
 
 | Variable | Purpose |
 |----------|---------|
-| `POKE_AGENTS_EDITORS` | `cursor,opencode,codex` by default if unset |
+| `POKE_AGENTS_EDITORS` | `cursor,opencode,codex,claude` by default if unset |
 | `POKE_AGENTS_CURSOR_AGENT_BIN` | Path to `agent` if not on `PATH` |
 | `POKE_AGENTS_PORT` | Default HTTP port when using `--http` without a number |
 | `POKE_AGENTS_MCP_PORT` | Used by `start:poke` for MCP (falls back to `POKE_AGENTS_PORT` or `8740`) |

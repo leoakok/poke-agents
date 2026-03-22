@@ -7,6 +7,8 @@ export function isPokeStackSource(source: string): boolean {
     s === "opencode" ||
     s.startsWith("opencode") ||
     s === "codex" ||
-    s.startsWith("codex")
+    s.startsWith("codex") ||
+    s === "claude" ||
+    s.startsWith("claude")
   );
 }

@@ -16,6 +16,13 @@ import {
 import { parseCursorStreamJsonStdout } from "../mcp/cursor-stream-json.js";
 import { toolStructured } from "../mcp/tool-result.js";
 import {
+  claudeSpawnCheck,
+  countClaudeJsonLines,
+  extractLastClaudeSessionId,
+  resolveClaudeRunCwd,
+  startClaudePrintDetached,
+} from "./claude-cli.js";
+import {
   codexSpawnCheck,
   countCodexJsonLines,
   extractLastCodexThreadId,
@@ -192,6 +199,10 @@ function attachBackgroundRun(
       const parsed = extractLastCodexThreadId(stdout);
       if (parsed) resume_uuid = parsed;
     }
+    if (opts.backend === "claude") {
+      const parsed = extractLastClaudeSessionId(stdout);
+      if (parsed) resume_uuid = parsed;
+    }
 
     let stream_json_truncated: boolean | undefined;
     let stream_json_event_count: number | undefined;
@@ -215,6 +226,14 @@ function attachBackgroundRun(
       (opts.fmt === "json" || opts.fmt === "stream-json")
     ) {
       const n = countCodexJsonLines(stdout);
+      stream_json_event_count = Math.min(n, 800);
+      stream_json_truncated = n > 800;
+    } else if (
+      opts.backend === "claude" &&
+      stdout &&
+      (opts.fmt === "json" || opts.fmt === "stream-json")
+    ) {
+      const n = countClaudeJsonLines(stdout);
       stream_json_event_count = Math.min(n, 800);
       stream_json_truncated = n > 800;
     }
@@ -289,8 +308,10 @@ export async function controlAgentStart(
     inner = await controlAgentStartCursor(execArgs);
   } else if (backend === "opencode") {
     inner = await controlAgentStartOpenCode(execArgs);
-  } else {
+  } else if (backend === "codex") {
     inner = await controlAgentStartCodex(execArgs);
+  } else {
+    inner = await controlAgentStartClaude(execArgs);
   }
 
   if (Object.keys(templateFields).length === 0) {
@@ -615,6 +636,108 @@ async function controlAgentStartCodex(
     cb.url && cb.token
       ? "Background Codex run — completion callback includes `resume_uuid` (thread id) parsed from JSONL `thread.started` when present."
       : "Background Codex run — poll `control_run_status` / `control_run_output_slice`. After exit, read `resume_uuid` from the callback payload or from JSONL `thread.started` in captured stdout.";
+
+  return toolStructured({
+    ok: true,
+    accepted: true,
+    status: "started" as const,
+    run_id: run.run_id,
+    callback_registered: callbackRegistered,
+    ...handoff,
+    backend,
+    cwd: runCwd,
+    ...(resume !== undefined ? { resume_uuid: resume } : {}),
+    hint,
+  });
+}
+
+async function controlAgentStartClaude(
+  args: ControlAgentStartArgs,
+): Promise<CallToolResult> {
+  const backend = "claude" as const;
+  const resolved = resolveCwd(args.cwd);
+  const runCwd = resolveClaudeRunCwd(resolved, args.workspace);
+  const resume = args.resume?.trim() || undefined;
+
+  const spawnOk = claudeSpawnCheck(runCwd);
+  if (!spawnOk.ok) {
+    return toolStructured({
+      ok: false,
+      accepted: false,
+      status: "failed_to_start" as const,
+      backend,
+      cwd: runCwd,
+      error: spawnOk.error,
+    });
+  }
+
+  const fmt = args.format ?? "text";
+  const cb = resolvePokeCallbackFromToolArgs({
+    poke_callback_url: args.poke_callback_url,
+    poke_callback_token: args.poke_callback_token,
+  });
+
+  const run = createRun({
+    provider: backend,
+    cwd: runCwd,
+    prompt: args.prompt,
+    resume_uuid: resume,
+    auto_created_cli_chat_uuid: undefined,
+    format: fmt,
+    poke_callback_url: cb.url,
+    poke_callback_token: cb.token,
+  });
+
+  let detached: ReturnType<typeof startClaudePrintDetached>;
+  try {
+    detached = startClaudePrintDetached({
+      cwd: runCwd,
+      prompt: args.prompt,
+      sessionId: resume,
+      continueSession: Boolean(args.continue_chat) && !resume,
+      outputFormat: fmt === "stream-json" ? "stream-json" : fmt,
+      model: args.model,
+      force: args.force,
+      workspace: args.workspace,
+    });
+  } catch (e) {
+    updateRun(run.run_id, {
+      status: "failed_to_start",
+      exit_code: 1,
+      signal: null,
+      timed_out: false,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return toolStructured({
+      ok: false,
+      accepted: false,
+      status: "failed_to_start" as const,
+      backend,
+      cwd: runCwd,
+      run_id: run.run_id,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const pid = detached.child.pid ?? null;
+  updateRun(run.run_id, { pid, status: "running" });
+
+  attachBackgroundRun(run.run_id, detached.child, {
+    clearRunTimeout: detached.clearRunTimeout,
+    getTimedOut: detached.getTimedOut,
+    fmt,
+    pokeUrl: cb.url,
+    pokeToken: cb.token,
+    resumeAtStart: resume,
+    backend,
+  });
+
+  const callbackRegistered = Boolean(cb.url && cb.token);
+  const handoff = pokeCompletionHandoffFields(callbackRegistered, run.run_id);
+  const hint =
+    cb.url && cb.token
+      ? "Background Claude Code run — completion callback may include `resume_uuid` parsed from JSON stdout when present."
+      : "Background Claude Code run — poll `control_run_status` / `control_run_output_slice`. Use `resume` / `continue_chat` for the next turn.";
 
   return toolStructured({
     ok: true,

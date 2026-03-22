@@ -7,6 +7,11 @@ import {
   cursorAgentBin,
 } from "../control/cursor-agent.js";
 import {
+  claudeAuthStatusText,
+  claudeBin,
+  claudeVersionLine,
+} from "../control/claude-cli.js";
+import {
   codexBin,
   codexLoginStatusText,
   codexVersionLine,
@@ -308,15 +313,29 @@ export function registerControlTools(mcp: McpServer): void {
           status,
         });
       }
+      if (backend === "codex") {
+        const [about, status] = await Promise.all([
+          codexVersionLine(resolved),
+          codexLoginStatusText(resolved),
+        ]);
+        return toolStructured({
+          ok: true,
+          backend,
+          cwd: resolved,
+          binary: codexBin(),
+          about,
+          status,
+        });
+      }
       const [about, status] = await Promise.all([
-        codexVersionLine(resolved),
-        codexLoginStatusText(resolved),
+        claudeVersionLine(resolved),
+        claudeAuthStatusText(resolved),
       ]);
       return toolStructured({
         ok: true,
         backend,
         cwd: resolved,
-        binary: codexBin(),
+        binary: claudeBin(),
         about,
         status,
       });

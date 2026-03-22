@@ -51,7 +51,7 @@ Registered prompt **names** (usable only if the client exposes MCP prompts):
 |------|--------|
 | \`getting_started\` | How to use this MCP |
 | \`workflow_inspect_saved_chats\` | Inspect saved Cursor/OpenCode chats |
-| \`workflow_cursor_headless_task\` | Run headless agent (Cursor, OpenCode, or Codex) |
+| \`workflow_cursor_headless_task\` | Run headless agent (Cursor, OpenCode, Codex, or Claude Code) |
 | \`workflow_bridge_disk_to_cli\` | Resume CLI from a saved disk session |
 
 Each prompt expands to a user message with a concrete workflow. If prompts are unavailable, use \`poke_agents_guide\` with \`topic: "overview"\` or \`"control"\` instead.
@@ -59,7 +59,7 @@ Each prompt expands to a user message with a concrete workflow. If prompts are u
 
 export const RESOURCE_TOOLS_READ = `# Poke agents — read tools (disk)
 
-Local **saved** chat storage only (not live CLI). Respects \`POKE_AGENTS_EDITORS\` (default \`cursor,opencode,codex\`).
+Local **saved** chat storage only (not live CLI). Respects \`POKE_AGENTS_EDITORS\` (default \`cursor,opencode,codex,claude\`).
 
 | Tool | Parameters | Purpose |
 |------|------------|---------|
@@ -78,28 +78,28 @@ export const RESOURCE_TOOLS_CONTROL = `# Poke agents — control tools (CLI)
 
 **No resource access?** Call \`poke_agents_guide\` with \`topic: "control"\` (or \`"all"\`) for the same text.
 
-**No \`provider\` parameters** — the active headless CLI is **\`POKE_AGENTS_CONTROL\`**: \`cursor\` (default → Cursor \`agent -p\`), \`opencode\` → \`opencode run\`, or \`codex\` → \`codex exec\`. See \`control_plan.active_control\` and binary paths.
+**No \`provider\` parameters** — the active headless CLI is **\`POKE_AGENTS_CONTROL\`**: \`cursor\` (default → Cursor \`agent -p\`), \`opencode\` → \`opencode run\`, \`codex\` → \`codex exec\`, or \`claude\` → Claude Code \`claude -p\`. See \`control_plan.active_control\` and binary paths.
 
 | Tool | When to use |
 |------|-------------|
 | \`control_plan\` | Contract: \`active_control\`, binaries, features, id rules, env, \`session_stop\`, \`orchestration\` |
-| \`control_agent\` | **Async** — returns \`run_id\` + **\`poke_completion_notice\`** + **\`will_post_completion_to_poke\`** immediately. **Cursor:** omit \`resume\`/\`continue_chat\` → \`create-chat\` then run. **OpenCode/Codex:** omit both → new run. **Continue:** \`resume\` = native CLI id. Poke: \`X-Poke-Callback-Url\`/\`Token\` or \`poke_callback_*\`. |
+| \`control_agent\` | **Async** — returns \`run_id\` + **\`poke_completion_notice\`** + **\`will_post_completion_to_poke\`** immediately. **Cursor:** omit \`resume\`/\`continue_chat\` → \`create-chat\` then run. **OpenCode/Codex/Claude:** omit both → new run. **Continue:** \`resume\` = native CLI id. Poke: \`X-Poke-Callback-Url\`/\`Token\` or \`poke_callback_*\`. |
 | \`control_run_status\` | Lifecycle + exit metadata for a \`run_id\` (\`backend\` field). |
 | \`control_run_output_slice\` | Bounded stdout/stderr window for a \`run_id\`. |
 | \`control_chat_slice\` / \`tail\` / \`around\` | Paginate disk transcripts (same \`id\` as \`session\`). |
-| \`control_agent_check\` | Cursor: \`about\` + \`status\`. OpenCode: \`--version\` + \`auth list\`. Codex: \`--version\` + \`login status\`. |
+| \`control_agent_check\` | Cursor: \`about\` + \`status\`. OpenCode: \`--version\` + \`auth list\`. Codex: \`--version\` + \`login status\`. Claude Code: \`--version\` + \`auth status\`. |
 | \`control_session_meta\` | Disk \`id\` metadata; optional \`count: true\` |
-| \`control_disk_to_cli\` | Disk \`id\` → \`composerId\` as \`resume\` (Cursor uuid, OpenCode \`ses_…\`, Codex thread uuid) |
+| \`control_disk_to_cli\` | Disk \`id\` → \`composerId\` as \`resume\` (Cursor uuid, OpenCode \`ses_…\`, Codex thread uuid, Claude session id when present) |
 
 **Transparency:** \`error_classification\`, \`cursor_stderr_message\`, \`hint\`, and \`control_run_output_slice\` after failure.
 
-**Streaming:** Cursor \`stream-json\` + \`stream\`; OpenCode \`json\` / \`stream-json\` → \`--format json\`; Codex → \`--json\`. See \`poke-agents://guide/agent-streaming\`.
+**Streaming:** Cursor \`stream-json\` + \`stream\`; OpenCode \`json\` / \`stream-json\` → \`--format json\`; Codex → \`--json\`; Claude Code → \`--output-format\` (\`text\` / \`json\` / \`stream-json\`). See \`poke-agents://guide/agent-streaming\`.
 
 **HTTP / search:** Use Poke’s tools, then pass text into \`control_agent.prompt\`.
 
 **Three ids:** (1) Disk \`sessions[].id\`. (2) **Resume id** from \`control_agent\` / \`control_disk_to_cli\`. (3) **\`run_id\`** — not the same as \`resume\`.
 
-**Env:** \`POKE_AGENTS_CONTROL\`, \`POKE_AGENTS_CURSOR_AGENT_BIN\`, \`POKE_AGENTS_OPENCODE_BIN\`, \`POKE_AGENTS_CODEX_BIN\`, \`POKE_AGENTS_CODEX_SKIP_GIT\`, \`POKE_AGENTS_AGENT_TIMEOUT_MS\`, \`CURSOR_API_KEY\`, \`POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST\`. Optional \`workspace\` (Cursor \`--workspace\`; OpenCode/Codex run cwd under \`cwd\`).
+**Env:** \`POKE_AGENTS_CONTROL\`, \`POKE_AGENTS_CURSOR_AGENT_BIN\`, \`POKE_AGENTS_OPENCODE_BIN\`, \`POKE_AGENTS_CODEX_BIN\`, \`POKE_AGENTS_CLAUDE_BIN\`, \`POKE_AGENTS_CLAUDE_BARE\`, \`POKE_AGENTS_CODEX_SKIP_GIT\`, \`POKE_AGENTS_AGENT_TIMEOUT_MS\`, \`CURSOR_API_KEY\`, \`POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST\`. Optional \`workspace\` (Cursor \`--workspace\`; OpenCode/Codex run cwd under \`cwd\`; Claude \`--add-dir\`).
 
 ## \`control_agent\` fields (orchestrators / models)
 
@@ -112,7 +112,7 @@ export const RESOURCE_TOOLS_CONTROL = `# Poke agents — control tools (CLI)
 | \`model\` | Cursor \`--model\` (\`auto\`, etc.); omit for CLI default. |
 | \`mode\` / \`plan\` | Cursor **read-only** only (\`plan\`, \`ask\`). Omit both for normal agent (edits + shell). |
 | \`trust\` | Cursor **workspace trust** (default true). Stops folder-trust prompts; **not** the same as shell approval. |
-| \`force\` | Cursor **\`--force\`** — use when the task must **execute** terminal commands or automation otherwise stalls. **Unsafe** on malicious prompts. Codex: dangerous bypass flag. |
+| \`force\` | Cursor **\`--force\`** — use when the task must **execute** terminal commands or automation otherwise stalls. **Unsafe** on malicious prompts. Codex: dangerous bypass flag. Claude Code: \`--dangerously-skip-permissions\`. |
 | \`poke_callback_*\` / HTTP headers | Completion ping when the CLI exits. Response fields **\`will_post_completion_to_poke\`** and **\`poke_completion_notice\`** state this explicitly for Poke. |
 | \`approve_mcp\` | Cursor **MCP server** auto-approval (default true); separate from \`force\`. |
 | \`sandbox\` | Cursor isolation; default \`disabled\` for headless network/shell. |
@@ -143,6 +143,10 @@ Use \`format: json\` or \`stream-json\` → \`opencode run --format json\`. Outp
 
 Use \`format: json\` or \`stream-json\` → \`codex exec --json\`. JSONL includes \`thread.started\` with \`thread_id\` for the next \`resume\`.
 
+## Claude Code (\`POKE_AGENTS_CONTROL=claude\`)
+
+Use \`format: json\` or \`stream-json\` → \`claude -p\` with \`--output-format\`. Captured stdout is read the same way via \`control_run_output_slice\` after completion. Default adds \`--bare\` for scripted runs; set \`POKE_AGENTS_CLAUDE_BARE=0\` to disable.
+
 **Limits (callback metadata):** Server-side JSON-line parsing caps at 800 events; \`stream_json_truncated\` may appear on the Poke completion callback.
 
 **Completion:** Prefer the Poke callback (\`stream_json_event_count\`, etc.) or poll \`control_run_status\` then \`control_run_output_slice\`.
@@ -156,7 +160,7 @@ When poke-agents is reached over **HTTP** (e.g. \`poke tunnel\` to \`/mcp\`), ea
 
 ## \`control_agent\` is already async
 
-\`control_agent\` **returns immediately** with \`run_id\` while the headless CLI runs **locally** (\`agent -p\`, \`opencode run\`, or \`codex exec\`). The tool result includes **\`poke_completion_notice\`** and **\`will_post_completion_to_poke\`** so Poke knows whether a **completion POST** is coming. Orchestrators must:
+\`control_agent\` **returns immediately** with \`run_id\` while the headless CLI runs **locally** (\`agent -p\`, \`opencode run\`, \`codex exec\`, or Claude Code \`claude -p\`). The tool result includes **\`poke_completion_notice\`** and **\`will_post_completion_to_poke\`** so Poke knows whether a **completion POST** is coming. Orchestrators must:
 
 - **Not** wait on the MCP HTTP response for CLI completion.
 - If **\`will_post_completion_to_poke\`** is true, expect an outbound POST when the CLI exits; if false, poll **\`control_run_status\`** and read **\`control_run_output_slice\`**.
@@ -180,7 +184,7 @@ export const RESOURCE_SESSION_IDS = `# Session identifiers
 
 1. **Disk id** — From \`sessions[].id\`. Use with \`session\`, \`control_session_meta\`, \`control_disk_to_cli\`.
 
-2. **Resume id** — Cursor: uuid from \`control_agent.resume_uuid\` / \`auto_created_cli_chat_uuid\`. OpenCode: \`ses_…\` from JSON/callback/disk. Codex: thread uuid from JSONL \`thread.started\`, callback, or \`control_disk_to_cli\`. Pass as \`resume\` on the next \`control_agent\` call.
+2. **Resume id** — Cursor: uuid from \`control_agent.resume_uuid\` / \`auto_created_cli_chat_uuid\`. OpenCode: \`ses_…\` from JSON/callback/disk. Codex: thread uuid from JSONL \`thread.started\`, callback, or \`control_disk_to_cli\`. Claude Code: session id from prior run, callback, or \`control_disk_to_cli\` when \`composerId\` is set. Pass as \`resume\` on the next \`control_agent\` call.
 
 3. **run_id** — From each \`control_agent\` call. Use with \`control_run_status\` and \`control_run_output_slice\`. **Not** the same as \`resume\` or disk ids.
 

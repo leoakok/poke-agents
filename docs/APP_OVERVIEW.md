@@ -4,7 +4,7 @@ This document is the fastest way for a new Cursor session (or engineer) to under
 
 ## 1) What this app is
 
-`poke-agents` is a local-first **MCP server + HTTP API + dashboard** for coding-agent session data and **headless CLI runs** (Cursor `agent`, OpenCode `opencode run`, or Codex `codex exec`, selected by **`POKE_AGENTS_CONTROL`**).
+`poke-agents` is a local-first **MCP server + HTTP API + dashboard** for coding-agent session data and **headless CLI runs** (Cursor `agent`, OpenCode `opencode run`, Codex `codex exec`, or Claude Code `claude -p`, selected by **`POKE_AGENTS_CONTROL`**).
 
 It has three layers:
 
@@ -26,15 +26,15 @@ Backed by vendored editor readers under `vendor/session-editors/`.
 
 ### B. Headless CLI control (control path)
 
-Backend: **`POKE_AGENTS_CONTROL`** = `cursor` (default), `opencode`, or `codex`. Control tools have **no `provider` argument**.
+Backend: **`POKE_AGENTS_CONTROL`** = `cursor` (default), `opencode`, `codex`, or `claude`. Control tools have **no `provider` argument**.
 
 - `control_plan`: read-only contract (`active_control`, binaries, `orchestration`); does not run agents
-- `control_agent`: **async** — immediate `run_id`; Cursor: omit `resume`/`continue_chat` → `create-chat` then `agent -p`; OpenCode: omit both → `opencode run`; Codex: omit both → `codex exec`; optional Poke callback
-- `control_agent_check`: probes the active backend (Cursor `about`/`status`, OpenCode version/auth, Codex version/`login status`)
+- `control_agent`: **async** — immediate `run_id`; Cursor: omit `resume`/`continue_chat` → `create-chat` then `agent -p`; OpenCode: omit both → `opencode run`; Codex: omit both → `codex exec`; Claude Code: omit both → `claude -p`; optional Poke callback
+- `control_agent_check`: probes the active backend (Cursor `about`/`status`, OpenCode version/auth, Codex version/`login status`, Claude Code `--version`/`auth status`)
 - `control_session_meta`: disk session metadata (+ optional count)
 - `control_disk_to_cli`: disk `sessions[].id` → `uuid` for `resume` when present
 
-**Cursor-only defaults** (ignored or N/A for OpenCode): `trust: true`, `approve_mcp: true`, `sandbox: "disabled"`.
+**Cursor-only defaults** (ignored or N/A for OpenCode / Codex / Claude): `trust: true`, `approve_mcp: true`, `sandbox: "disabled"`.
 
 ### C. Agent templates
 

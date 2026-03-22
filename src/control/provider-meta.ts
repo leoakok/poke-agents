@@ -1,4 +1,5 @@
 import type { ControlProviderMeta } from "./types.js";
+import { claudeBin } from "./claude-cli.js";
 import { resolveControlBackend } from "./control-backend.js";
 import { codexBin } from "./codex-cli.js";
 import { cursorAgentBin } from "./cursor-agent.js";
@@ -35,6 +36,14 @@ const CODEX_NOTES = [
   "`codex exec --json` emits JSONL to stdout; completion callbacks may include `stream_json_event_count` (capped).",
   "Authenticate with `codex login` / ChatGPT or API key flow (see OpenAI Codex docs). Unattended runs default to `--full-auto`; pass `force: true` for `--dangerously-bypass-approvals-and-sandbox` (use only in isolated environments).",
   "Non-git directories: set `POKE_AGENTS_CODEX_SKIP_GIT=1` to pass `--skip-git-repo-check`, or ensure the CLI cwd is inside a git repo.",
+];
+
+const CLAUDE_NOTES = [
+  "Headless control uses **`claude -p`** (Claude Code print mode) when `POKE_AGENTS_CONTROL=claude` (see `active_control` on `control_plan`).",
+  "Maps MCP → CLI: `resume` → `--resume <id>`; `continue_chat` → `--continue` (with `-p`); `workspace` → `--add-dir` (resolved path); `format` → `--output-format` (`text` / `json` / `stream-json`); `model` → `--model`; `force` → `--dangerously-skip-permissions` (trusted environments only).",
+  "Default headless adds **`--bare`** for faster scripted runs; set **`POKE_AGENTS_CLAUDE_BARE=0`** to disable.",
+  "Disk sessions use adapter **`claude`** / source **`claude-code`** under `~/.claude/projects` — pass **`composerId`** as **`resume`** when it is a UUID.",
+  "Auth: `claude auth login` / `claude auth status` (see Anthropic Claude Code docs).",
 ];
 
 export function controlProviderMeta(): ControlProviderMeta[] {
@@ -84,6 +93,21 @@ export function controlProviderMeta(): ControlProviderMeta[] {
       },
       notes: CODEX_NOTES,
     },
+    {
+      id: "claude",
+      label: "Claude Code (Anthropic)",
+      features: {
+        create_empty_chat: false,
+        run_headless_prompt: true,
+        resume_chat_by_id: true,
+        continue_previous_cli: true,
+        cli_identity_status: true,
+        disk_session_snapshot: true,
+        stop_session_via_cli: false,
+        list_chats_via_cli: false,
+      },
+      notes: CLAUDE_NOTES,
+    },
   ];
 }
 
@@ -94,11 +118,12 @@ export function controlCapabilitiesPayload(): Record<string, unknown> {
     cursor_agent_binary: cursorAgentBin(),
     opencode_cli_binary: opencodeBin(),
     codex_cli_binary: codexBin(),
+    claude_cli_binary: claudeBin(),
     orchestration: {
       http_mcp_and_tunnel:
         "Over HTTP (including poke tunnel), one MCP tool invocation maps to one HTTP request until the tool handler returns. Middleboxes and tunnels apply idle/total timeouts — a 502 often means the proxy gave up, not that poke-agents crashed.",
       control_agent:
-        "Returns immediately with run_id while the headless CLI runs locally (Cursor agent, OpenCode run, or codex exec). Orchestrators must not classify this tool as blocking until the CLI finishes; use X-Poke-Callback-Url/Token (or stdio poke_callback_*) and/or poll control_run_status.",
+        "Returns immediately with run_id while the headless CLI runs locally (Cursor `agent`, OpenCode `run`, `codex exec`, or Claude Code `claude -p`). Orchestrators must not classify this tool as blocking until the CLI finishes; use X-Poke-Callback-Url/Token (or stdio poke_callback_*) and/or poll control_run_status.",
       large_disk_transcripts:
         "session loads the full message list in one call — fine for small chats, but slow and timeout-prone for very large threads. Prefer control_chat_slice, control_chat_tail, or control_chat_around with modest limits.",
       network_bound_tools:
@@ -108,7 +133,7 @@ export function controlCapabilitiesPayload(): Record<string, unknown> {
       disk:
         "Opaque id from `sessions`: source:base64url(JSON of on-disk chat row).",
       cli:
-        "Cursor: uuid from `auto_created_cli_chat_uuid` / `resume_uuid` / `create-chat`. OpenCode: `ses_…`. Codex: thread uuid from JSONL `thread.started` or disk `composerId` → pass as `resume`.",
+        "Cursor: uuid from `auto_created_cli_chat_uuid` / `resume_uuid` / `create-chat`. OpenCode: `ses_…`. Codex: thread uuid from JSONL `thread.started` or disk `composerId` → pass as `resume`. Claude Code: session uuid / name for `--resume`, or disk `composerId` from `claude-code` rows.",
       bridge:
         "`control_disk_to_cli` with a disk `id` reads composerId when present.",
     },
@@ -119,10 +144,13 @@ export function controlCapabilitiesPayload(): Record<string, unknown> {
     },
     env: {
       POKE_AGENTS_CONTROL:
-        "`cursor` (default), `opencode`, or `codex` — which CLI backs `control_agent` / `control_agent_check`",
+        "`cursor` (default), `opencode`, `codex`, or `claude` — which CLI backs `control_agent` / `control_agent_check`",
       POKE_AGENTS_CURSOR_AGENT_BIN: "Override path to Cursor `agent`",
       POKE_AGENTS_OPENCODE_BIN: "Override path to `opencode`",
       POKE_AGENTS_CODEX_BIN: "Override path to `codex` (OpenAI Codex CLI)",
+      POKE_AGENTS_CLAUDE_BIN: "Override path to `claude` (Claude Code CLI)",
+      POKE_AGENTS_CLAUDE_BARE:
+        "Set to 0/false/off to omit `--bare` on headless `claude -p` (default: bare on)",
       POKE_AGENTS_CODEX_SKIP_GIT:
         "Set to 1 to pass `--skip-git-repo-check` on `codex exec` (non-git cwd)",
       POKE_AGENTS_AGENT_TIMEOUT_MS: "Headless run timeout (default 600000)",

@@ -1,10 +1,11 @@
 /**
- * End-to-end smoke: real Cursor Agent CLI, OpenCode, and Codex — one short prompt each,
+ * End-to-end smoke: real CLIs (Cursor Agent, OpenCode, Codex, Claude Code) — one short prompt each,
  * wait for completion, assert the model output contains a known token.
  *
- * Requires local CLIs on PATH (or *BIN env overrides) and working auth for each provider.
+ * Uses whichever CLIs are installed (default: **skip** missing binaries). Set **`POKE_AGENTS_SMOKE_PARTIAL=0`**
+ * to require all four on PATH (or *BIN overrides) with working auth.
  *
- * Run all three in one go:
+ * Run all four in one go:
  *   npm run test:smoke:control
  *
  * Or with full MCP tool smoke + these CLIs:
@@ -16,20 +17,34 @@
  *   POKE_AGENTS_SMOKE_WORKSPACE     — optional `workspace` arg for Cursor runs
  *   POKE_AGENTS_SMOKE_AGENT_TIMEOUT_MS — per-run CLI timeout (default: 180000)
  *   POKE_AGENTS_CODEX_SKIP_GIT=1      — passed through for non-git cwd (codex)
- *   POKE_AGENTS_SMOKE_PARTIAL=1       — skip backends whose CLI is missing (default: require all three)
+ *   POKE_AGENTS_SMOKE_PARTIAL         — skip backends whose CLI is missing (**default: on** — unset or any value except 0/false/off). Set **`0`** / **`false`** / **`off`** to **require** every backend’s binary (fail if codex/claude/etc. not installed).
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { after, before, describe, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { claudeSpawnCheck } from "../control/claude-cli.js";
 import { codexSpawnCheck } from "../control/codex-cli.js";
 import { cursorAgentBin } from "../control/cursor-agent.js";
 import { opencodeSpawnCheck } from "../control/opencode-cli.js";
 import { createPokeAgentsMcpServer } from "../mcp/server.js";
 
 const SMOKE_ENABLED = process.env.POKE_AGENTS_SMOKE_CONTROL_CLIS === "1";
-const SMOKE_PARTIAL = process.env.POKE_AGENTS_SMOKE_PARTIAL === "1";
+
+/** Skip per-backend tests when the CLI binary is missing (ENOENT, etc.). Default on so `npm run test:smoke:control` passes with only some CLIs installed. */
+function smokePartialSkipsMissing(): boolean {
+  const raw = process.env.POKE_AGENTS_SMOKE_PARTIAL?.trim().toLowerCase();
+  if (raw === undefined || raw === "") return true;
+  return !(
+    raw === "0" ||
+    raw === "false" ||
+    raw === "off" ||
+    raw === "no"
+  );
+}
+
+const SMOKE_PARTIAL = smokePartialSkipsMissing();
 const SMOKE_CWD = process.env.POKE_AGENTS_SMOKE_CWD?.trim() || process.cwd();
 const SMOKE_WORKSPACE = process.env.POKE_AGENTS_SMOKE_WORKSPACE?.trim();
 const ACK = "POKE_SMOKE_ACK";
@@ -117,7 +132,7 @@ async function waitForRunDone(
 
 async function smokeOneBackend(
   client: Client,
-  backend: "cursor" | "opencode" | "codex",
+  backend: "cursor" | "opencode" | "codex" | "claude",
 ): Promise<void> {
   process.env.POKE_AGENTS_CONTROL = backend;
 
@@ -131,6 +146,9 @@ async function smokeOneBackend(
     args.mode = "ask";
     args.trust = true;
     args.sandbox = "disabled";
+  }
+  if (backend === "claude") {
+    args.force = true;
   }
   if (backend === "codex" && process.env.POKE_AGENTS_CODEX_SKIP_GIT !== "0") {
     process.env.POKE_AGENTS_CODEX_SKIP_GIT =
@@ -172,7 +190,7 @@ async function smokeOneBackend(
 }
 
 describe(
-  "Control CLIs smoke (Cursor + OpenCode + Codex)",
+  "Control CLIs smoke (Cursor + OpenCode + Codex + Claude)",
   { skip: !SMOKE_ENABLED, concurrency: false },
   () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -215,15 +233,16 @@ describe(
 
     test("partial mode: at least one CLI binary present", async (t) => {
       if (!SMOKE_PARTIAL) {
-        t.skip("only when POKE_AGENTS_SMOKE_PARTIAL=1");
+        t.skip("skipped in strict mode (POKE_AGENTS_SMOKE_PARTIAL=0)");
         return;
       }
       const cursorOk = cursorSpawnCheck(SMOKE_CWD).ok;
       const openOk = opencodeSpawnCheck(SMOKE_CWD).ok;
       const codexOk = codexSpawnCheck(SMOKE_CWD).ok;
+      const claudeOk = claudeSpawnCheck(SMOKE_CWD).ok;
       assert.ok(
-        cursorOk || openOk || codexOk,
-        "POKE_AGENTS_SMOKE_PARTIAL=1 but no CLIs found (agent, opencode, codex).",
+        cursorOk || openOk || codexOk || claudeOk,
+        "partial mode is on but no CLIs found (agent, opencode, codex, claude). Install at least one or disable this suite.",
       );
     });
 
@@ -235,7 +254,7 @@ describe(
           return;
         }
         assert.fail(
-          `cursor/agent CLI missing or not runnable (${probe.error}). Install Cursor CLI or set POKE_AGENTS_SMOKE_PARTIAL=1 to skip missing backends.`,
+          `cursor/agent CLI missing or not runnable (${probe.error}). Install Cursor CLI, or leave POKE_AGENTS_SMOKE_PARTIAL unset (default skips missing CLIs).`,
         );
       }
       await smokeOneBackend(client, "cursor");
@@ -249,7 +268,7 @@ describe(
           return;
         }
         assert.fail(
-          `opencode CLI missing or not runnable (${probe.error}). Install OpenCode or set POKE_AGENTS_SMOKE_PARTIAL=1.`,
+          `opencode CLI missing or not runnable (${probe.error}). Install OpenCode, or use default partial mode (skip missing CLIs).`,
         );
       }
       await smokeOneBackend(client, "opencode");
@@ -263,10 +282,24 @@ describe(
           return;
         }
         assert.fail(
-          `codex CLI missing or not runnable (${probe.error}). Install Codex CLI or set POKE_AGENTS_SMOKE_PARTIAL=1.`,
+          `codex CLI missing or not runnable (${probe.error}). Install Codex CLI, or use default partial mode (skip missing CLIs).`,
         );
       }
       await smokeOneBackend(client, "codex");
+    });
+
+    test("Claude Code CLI: hi-style prompt → output contains token", async (t) => {
+      const probe = claudeSpawnCheck(SMOKE_CWD);
+      if (!probe.ok) {
+        if (SMOKE_PARTIAL) {
+          t.skip(`claude CLI unavailable: ${probe.error}`);
+          return;
+        }
+        assert.fail(
+          `claude CLI missing or not runnable (${probe.error}). Install Claude Code CLI, or use default partial mode (skip missing CLIs).`,
+        );
+      }
+      await smokeOneBackend(client, "claude");
     });
   },
 );

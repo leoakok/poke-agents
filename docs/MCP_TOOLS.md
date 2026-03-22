@@ -32,7 +32,7 @@ Every tool returns **MCP `structuredContent`** validated against **`outputSchema
 
 | Tool | `ok` | Notes |
 |------|------|--------|
-| `control_plan` | *(no top-level `ok`)* | **`active_control`**, `providers`, `cursor_agent_binary`, `opencode_cli_binary`, `codex_cli_binary`, **`orchestration`**, `session_ids`, `session_stop`, `env` |
+| `control_plan` | *(no top-level `ok`)* | **`active_control`**, `providers`, `cursor_agent_binary`, `opencode_cli_binary`, `codex_cli_binary`, `claude_cli_binary`, **`orchestration`**, `session_ids`, `session_stop`, `env` |
 | `control_agent` | `true` / `false` | **Async** — immediate `run_id` + **`poke_completion_notice`** + **`will_post_completion_to_poke`** (tells Poke whether a completion **POST** will fire). Optional **`agent_template`**. Backend **`POKE_AGENTS_CONTROL`**. Completion via callback or `control_run_*` |
 | `control_run_status` | `true` / `false` | `run_id`, lifecycle `status`, `pid`, `exit_code`, `stdout_length` / `stderr_length`, `run_error?` |
 | `control_run_output_slice` | `true` / `false` | Window of captured `stdout` / `stderr` by char `offset` / `limit` |
@@ -47,7 +47,7 @@ Every tool returns **MCP `structuredContent`** validated against **`outputSchema
 
 ## Profile (`POKE_AGENTS_EDITORS`)
 
-Default **`cursor,opencode,codex`**. See [`SETUP_POKE_CURSOR_OPENCODE.md`](SETUP_POKE_CURSOR_OPENCODE.md).
+Default **`cursor,opencode,codex,claude`**. See [`SETUP_POKE_CURSOR_OPENCODE.md`](SETUP_POKE_CURSOR_OPENCODE.md).
 
 `adapters.editors` echoes the allowlist.
 
@@ -69,7 +69,7 @@ Use when the client cannot read MCP **resources** — same content as `poke-agen
 
 **Parameters:** none.
 
-**Returns:** `ok`, `connectors[]` (`id`, `display_name`, `available`, `detail?`, `server_enabled?`), `editors[]` (effective `POKE_AGENTS_EDITORS`). **cursor**, **opencode**, and **codex** are always listed first; `server_enabled: false` means that id is not in the env allowlist (no merged `sessions` rows until you add it and restart).
+**Returns:** `ok`, `connectors[]` (`id`, `display_name`, `available`, `detail?`, `server_enabled?`), `editors[]` (effective `POKE_AGENTS_EDITORS`). **cursor**, **opencode**, **codex**, and **claude** are always listed first; `server_enabled: false` means that id is not in the env allowlist (no merged `sessions` rows until you add it and restart).
 
 **When to call:** Before `sessions` if lists are empty, or to explain why an adapter is `available: false`.
 
@@ -119,16 +119,16 @@ Use when the client cannot read MCP **resources** — same content as `poke-agen
 
 ## Control plane — env `POKE_AGENTS_CONTROL`
 
-**`POKE_AGENTS_CONTROL`:** `cursor` (default), `opencode`, or `codex`. There is **no `provider` field** on control tools; switch backends only via this env and restart the MCP process if needed.
+**`POKE_AGENTS_CONTROL`:** `cursor` (default), `opencode`, `codex`, or `claude` (Claude Code). There is **no `provider` field** on control tools; switch backends only via this env and restart the MCP process if needed.
 
-**Env (see `control_plan.env`):** `POKE_AGENTS_CURSOR_AGENT_BIN`, `POKE_AGENTS_OPENCODE_BIN`, `POKE_AGENTS_CODEX_BIN`, `POKE_AGENTS_CODEX_SKIP_GIT`, `POKE_AGENTS_AGENT_TIMEOUT_MS`, `CURSOR_API_KEY` (Cursor CLI auth), `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST`, etc.
+**Env (see `control_plan.env`):** `POKE_AGENTS_CURSOR_AGENT_BIN`, `POKE_AGENTS_OPENCODE_BIN`, `POKE_AGENTS_CODEX_BIN`, `POKE_AGENTS_CLAUDE_BIN`, `POKE_AGENTS_CLAUDE_BARE`, `POKE_AGENTS_CODEX_SKIP_GIT`, `POKE_AGENTS_AGENT_TIMEOUT_MS`, `CURSOR_API_KEY` (Cursor CLI auth), `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST`, etc.
 
 ### Id shapes
 
 | Kind | Use |
 |------|-----|
 | Disk | `sessions[].id` → `session`, `control_session_meta`, `control_disk_to_cli` |
-| Resume | **Cursor:** `resume_uuid` / `auto_created_cli_chat_uuid` → next `resume`. **OpenCode:** `ses_…` from JSON / callback / disk. **Codex:** thread uuid from JSONL `thread.started`, callback, or `control_disk_to_cli` |
+| Resume | **Cursor:** `resume_uuid` / `auto_created_cli_chat_uuid` → next `resume`. **OpenCode:** `ses_…` from JSON / callback / disk. **Codex:** thread uuid from JSONL `thread.started`, callback, or `control_disk_to_cli`. **Claude Code:** session id from prior run, callback, or `control_disk_to_cli` when `composerId` is set |
 | Run | `control_agent` → `run_id` → `control_run_status` / `control_run_output_slice` (**not** the same as `resume`) |
 
 **Callbacks (Poke):** On HTTP MCP, send `X-Poke-Callback-Url` and `X-Poke-Callback-Token`; completion posts small JSON (`hasMore: false`). For stdio, pass `poke_callback_url` + `poke_callback_token` on `control_agent`.
@@ -176,7 +176,9 @@ Same tool as **[Read tools → `agent_templates`](#agent_templates)** above — 
 
 **Codex (`codex`):** **New session:** omit `resume` / `continue_chat` → `codex exec` in the background. **Continue:** pass thread uuid as `resume` → `codex exec resume <uuid> <prompt>`. **`continue_chat`** without `resume` → `codex exec resume --last <prompt>`. `format` `json` / `stream-json` → `--json` (JSONL; `thread.started` → `thread_id`). **`force: true`** → `--dangerously-bypass-approvals-and-sandbox`. Default **`sandbox: "disabled"`** adds `--full-auto`; **`sandbox: "enabled"`** omits `--full-auto` / bypass. **`model`** → `-m`. **`POKE_AGENTS_CODEX_SKIP_GIT=1`** → `--skip-git-repo-check`. See `control_plan.providers`.
 
-On failure to start, use `error_classification`, `cursor_stderr_message` (name kept for Poke compatibility), and `hint`. After completion, `control_run_output_slice`. **`control_run_status`** includes **`backend`**: `cursor` \| `opencode` \| `codex`.
+**Claude Code (`claude`):** **New session:** omit `resume` / `continue_chat` → `claude -p` in the background (default adds `--bare`; set **`POKE_AGENTS_CLAUDE_BARE=0`** to omit). **Continue:** pass session id as `resume` → `--resume`; **`continue_chat`** → `--continue`. `format` → `--output-format` (`text` / `json` / `stream-json`). **`workspace`** → `--add-dir` (resolved path). **`force: true`** → `--dangerously-skip-permissions` (trusted environments only). Cursor-only fields are ignored; see `control_plan.providers`.
+
+On failure to start, use `error_classification`, `cursor_stderr_message` (name kept for Poke compatibility), and `hint`. After completion, `control_run_output_slice`. **`control_run_status`** includes **`backend`**: `cursor` \| `opencode` \| `codex` \| `claude`.
 
 **HTTP / search:** Not exposed on this MCP — use **Poke’s** (or your orchestrator’s) tools, then pass text into `control_agent.prompt`.
 

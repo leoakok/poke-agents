@@ -37,6 +37,8 @@ function cliFamilyLabel(cli: AgentProcessRow["cli"]): string | null {
       return "OpenCode";
     case "codex":
       return "Codex";
+    case "claude-code":
+      return "Claude";
     default:
       return null;
   }

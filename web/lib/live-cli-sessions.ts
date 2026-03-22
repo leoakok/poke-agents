@@ -7,10 +7,11 @@ import { buildLiveResumeIndex } from "@/lib/live-session-match";
 
 function sourceForCli(
   cli: AgentProcessRow["cli"],
-): "cursor" | "opencode" | "codex" | "live" {
+): "cursor" | "opencode" | "codex" | "claude" | "live" {
   if (cli === "cursor-agent") return "cursor";
   if (cli === "opencode") return "opencode";
   if (cli === "codex") return "codex";
+  if (cli === "claude-code") return "claude";
   return "live";
 }
 

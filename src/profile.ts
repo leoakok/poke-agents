@@ -1,9 +1,9 @@
 /**
  * Which vendored editor adapters are active for merged disk sessions + MCP `sessions`.
- * Default: Cursor, OpenCode, and Codex (saved threads under ~/.codex/sessions).
+ * Default: Cursor, OpenCode, Codex, and Claude Code (disk adapters).
  * Override: POKE_AGENTS_EDITORS=cursor,opencode (comma or space separated).
  */
-const DEFAULT_EDITORS = ["cursor", "opencode", "codex"] as const;
+const DEFAULT_EDITORS = ["cursor", "opencode", "codex", "claude"] as const;
 
 function parseEditorList(raw: string | undefined): string[] {
   if (raw == null || raw.trim() === "") {

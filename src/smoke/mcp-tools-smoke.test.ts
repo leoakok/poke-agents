@@ -76,7 +76,7 @@ describe(
     const ids = new Set(
       (s.connectors as { id: string }[]).map((c: { id: string }) => c.id),
     );
-    for (const need of ["cursor", "opencode", "codex"]) {
+    for (const need of ["cursor", "opencode", "codex", "claude"]) {
       assert.ok(ids.has(need), `adapters should list core id ${need}`);
     }
   });
@@ -127,10 +127,12 @@ describe(
     assert.ok(typeof s.cursor_agent_binary === "string");
     assert.ok(typeof s.opencode_cli_binary === "string");
     assert.ok(typeof s.codex_cli_binary === "string");
+    assert.ok(typeof s.claude_cli_binary === "string");
     assert.ok(
       s.active_control === "cursor" ||
         s.active_control === "opencode" ||
-        s.active_control === "codex",
+        s.active_control === "codex" ||
+        s.active_control === "claude",
     );
     assert.ok(s.orchestration && typeof s.orchestration === "object");
     assert.ok(
@@ -229,6 +231,30 @@ describe(
     }
   });
 
+  test("control_agent (claude, invalid binary → fast fail)", async () => {
+    const prevBin = process.env.POKE_AGENTS_CLAUDE_BIN;
+    const prevCtl = process.env.POKE_AGENTS_CONTROL;
+    process.env.POKE_AGENTS_CONTROL = "claude";
+    process.env.POKE_AGENTS_CLAUDE_BIN =
+      "/nonexistent/poke-agents-claude-smoke-missing";
+    try {
+      const r = await client.callTool({
+        name: "control_agent",
+        arguments: { prompt: "smoke-no-run" },
+      });
+      const s = structured(r);
+      assert.equal(s.ok, false);
+      assert.equal(s.accepted, false);
+      assert.equal(s.status, "failed_to_start");
+      assert.equal(s.backend, "claude");
+    } finally {
+      if (prevBin === undefined) delete process.env.POKE_AGENTS_CLAUDE_BIN;
+      else process.env.POKE_AGENTS_CLAUDE_BIN = prevBin;
+      if (prevCtl === undefined) delete process.env.POKE_AGENTS_CONTROL;
+      else process.env.POKE_AGENTS_CONTROL = prevCtl;
+    }
+  });
+
   test("control_run_status (unknown run)", async () => {
     const r = await client.callTool({
       name: "control_run_status",
@@ -284,7 +310,8 @@ describe(
     assert.ok(
       s.backend === "cursor" ||
         s.backend === "opencode" ||
-        s.backend === "codex",
+        s.backend === "codex" ||
+        s.backend === "claude",
     );
   });
 

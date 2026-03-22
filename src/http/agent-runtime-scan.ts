@@ -3,7 +3,12 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-export type AgentCliFamily = "cursor-agent" | "opencode" | "codex" | "other";
+export type AgentCliFamily =
+  | "cursor-agent"
+  | "opencode"
+  | "codex"
+  | "claude-code"
+  | "other";
 
 export type AgentProcessInfo = {
   pid: number;
@@ -43,6 +48,7 @@ function parsePsLine(line: string): {
 
 function classifyCliFamily(cmd: string): AgentCliFamily {
   const c = cmd.toLowerCase();
+  if (/\bclaude\s+/.test(c) && /\s-p\b|--print\b/.test(c)) return "claude-code";
   if (/\bopencode\s+run\b/.test(c)) return "opencode";
   if (/\bcodex\s+exec\b/.test(c)) return "codex";
   if (/\sagent\s/.test(c) || /[/\\]agent(\s|$)/.test(c)) return "cursor-agent";
@@ -55,6 +61,7 @@ function classifyCliFamily(cmd: string): AgentCliFamily {
 
 function classifyCommand(cmd: string): AgentProcessInfo["mode"] {
   const c = cmd;
+  if (/\bclaude\s+/i.test(c) && /\s-p\b|--print\b/.test(c)) return "headless";
   if (/\bopencode\s+run\b/i.test(c)) return "headless";
   if (/\bcodex\s+exec\b/i.test(c)) return "headless";
   if (/\s-p\b/.test(c) || /--print\b/.test(c)) return "headless";
@@ -85,6 +92,9 @@ function shouldIncludeProcess(cmd: string): boolean {
 
   // Codex headless: `codex exec …` (including `codex exec resume …`)
   if (/\bcodex\s+exec\b/i.test(cmd)) return true;
+
+  // Claude Code print mode: `claude … -p …` / `--print`
+  if (/\bclaude\s+/i.test(cmd) && /\s-p\b|--print\b/.test(cmd)) return true;
 
   // Packaged Cursor Agent CLI (Node entry under cursor-agent/versions)
   if (/cursor-agent[/\\]versions[/\\]/i.test(cmd) && /\.(js|mjs|cjs)(\s|$)/i.test(cmd)) {
@@ -122,7 +132,7 @@ async function runPs(): Promise<string> {
 }
 
 /**
- * Best-effort list of local coding-agent CLI processes: Cursor **`agent`**, OpenCode **`opencode run`**, Codex **`codex exec`**.
+ * Best-effort list of local coding-agent CLI processes: Cursor **`agent`**, OpenCode **`opencode run`**, Codex **`codex exec`**, Claude Code **`claude`** (print/headless).
  * Does not see in-IDE-only UIs unless they spawn a separate CLI child.
  */
 export async function scanAgentProcesses(): Promise<AgentRuntimeSnapshot> {

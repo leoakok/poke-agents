@@ -217,7 +217,7 @@ export function SettingsPage() {
             <code className="font-mono text-xs">POKE_AGENTS_CONTROL</code> selects
             the CLI for{" "}
             <code className="font-mono text-xs">control_agent</code>
-            : cursor, opencode, or codex. Use{" "}
+            : cursor, opencode, codex, or claude. Use{" "}
             <span className="text-foreground font-medium">Live</span> to send{" "}
             <code className="font-mono text-xs">SIGINT</code> to matching PIDs.
           </CardDescription>

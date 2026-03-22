@@ -56,21 +56,29 @@ export function createPokeAgentsMcpServer(): McpServer {
       inputSchema: sessionsInput,
       outputSchema: sessionsOutput,
     },
-    withMcpToolLogging("sessions", async ({ editor, limit, folder }) => {
-      const sessions = await listSessionsForProfile({
+    withMcpToolLogging("sessions", async ({ editor, limit, offset, folder }) => {
+      const lim = limit ?? 50;
+      const off = offset ?? 0;
+      const page = await listSessionsForProfile({
         source: editor,
-        limit: limit ?? 50,
+        limit: lim,
+        offset: off,
         projectPath: folder,
       });
+      const has_more = off + page.sessions.length < page.total_count;
       return toolStructured({
         ok: true as const,
-        sessions: sessions.map((s) => ({
+        sessions: page.sessions.map((s) => ({
           id: s.id,
           source: s.source,
           title: s.title,
           last_updated_at: s.lastUpdatedAt,
           project_path: s.projectPath,
         })),
+        total_count: page.total_count,
+        offset: off,
+        limit: lim,
+        has_more,
       });
     })
   );

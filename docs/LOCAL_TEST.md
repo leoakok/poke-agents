@@ -87,7 +87,7 @@ npx poke@latest tunnel http://127.0.0.1:8740/mcp -n "Poke agents"
 When the HTTP server is up:
 
 - `GET /api/connectors`
-- `GET /api/sessions`
+- `GET /api/sessions` — query: `limit` (default 10), `offset`, `editor`, `folder`; JSON includes `total_count` and `has_more` for paging
 - `GET /api/session?id=…`
 
 For **`npm run dev:web`** with MCP elsewhere, set **`POKE_AGENTS_MCP_ORIGIN`** in `web/.env.local` (see `web/.env.example`).

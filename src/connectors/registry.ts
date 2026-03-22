@@ -198,31 +198,45 @@ export function activeConnectors(): readonly AgentConnector[] {
   return allConnectors.filter((c) => allowed.has(c.id));
 }
 
-/** Merged sessions, only from profile editors. */
+export type ListSessionsPage = {
+  sessions: SessionSummary[];
+  /** Count after profile/source/folder filters, before offset/limit slice. */
+  total_count: number;
+};
+
+/**
+ * Merged sessions, only from profile editors.
+ * Scans **`getChats()` only for adapters in `POKE_AGENTS_EDITORS`** (not every vendored editor) for speed.
+ */
 export async function listSessionsForProfile(options: {
   limit?: number;
+  /** For pagination (default 0). */
+  offset?: number;
   projectPath?: string;
   source?: string;
-}): Promise<SessionSummary[]> {
+}): Promise<ListSessionsPage> {
   const allowed = getAllowedEditorIds();
   const bundle = loadVendorEditors();
-  let chats: Record<string, unknown>[];
-  try {
-    chats = bundle.getAllChats();
-  } catch {
-    return [];
+  const chats: Record<string, unknown>[] = [];
+  for (const ed of bundle.editors) {
+    if (!allowed.has(ed.name)) continue;
+    try {
+      chats.push(...ed.getChats());
+    } catch {
+      /* skip broken adapters */
+    }
   }
-  chats = chats.filter((c) => {
+  let filtered = chats.filter((c) => {
     const name = editorNameForChat(c, bundle.editors);
     return name != null && allowed.has(name);
   });
-  const { limit = 50, projectPath, source } = options;
+  const { limit = 50, offset = 0, projectPath, source } = options;
   if (source) {
-    chats = chats.filter((c) =>
+    filtered = filtered.filter((c) =>
       chatMatchesSourceFilter(c, source, bundle.editors)
     );
   }
-  let rows = chats.map((c) => chatToSummary(c));
+  let rows = filtered.map((c) => chatToSummary(c));
   if (projectPath) {
     rows = rows.filter(
       (r) =>
@@ -234,7 +248,13 @@ export async function listSessionsForProfile(options: {
   rows.sort((a, b) =>
     (b.lastUpdatedAt ?? "").localeCompare(a.lastUpdatedAt ?? "")
   );
-  return rows.slice(0, limit);
+  const total_count = rows.length;
+  const off = Math.max(0, Math.floor(offset));
+  const lim = Math.max(1, Math.floor(limit));
+  return {
+    sessions: rows.slice(off, off + lim),
+    total_count,
+  };
 }
 
 /** Load messages only if the chat’s adapter is in the active profile. */

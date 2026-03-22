@@ -9,11 +9,19 @@ import { DASHBOARD_NAV } from "@/lib/dashboard-nav";
 import { cn } from "@/lib/utils";
 
 export function HomeDashboard() {
-  const { sessions, loading, error, liveRuntime, liveSse } = useDashboardData();
+  const {
+    diskSessions,
+    diskTotalCount,
+    loading,
+    error,
+    liveRuntime,
+    liveSse,
+  } = useDashboardData();
 
   const liveN =
     liveRuntime?.ok === true ? liveRuntime.processes.length : null;
-  const sessionCount = sessions.length;
+  const sessionCount =
+    diskTotalCount != null ? diskTotalCount : diskSessions.length;
 
   const shortcuts = DASHBOARD_NAV.filter((item) => item.href !== "/");
 

@@ -34,6 +34,7 @@ function groupLabelForSource(source: string): string {
 function SessionSidebarNavInner() {
   const {
     sessions,
+    diskSessions,
     connectors,
     loading,
     liveRuntime,
@@ -54,11 +55,14 @@ function SessionSidebarNavInner() {
     const set = new Set<string>();
     if (!liveRuntime || liveRuntime.ok !== true) return set;
     for (const p of liveRuntime.processes) {
-      const { matchingSessionIds } = buildLiveResumeIndex(sessions, p.command);
+      const { matchingSessionIds } = buildLiveResumeIndex(
+        diskSessions,
+        p.command,
+      );
       for (const id of matchingSessionIds) set.add(id);
     }
     return set;
-  }, [liveRuntime, sessions]);
+  }, [liveRuntime, diskSessions]);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -83,7 +87,10 @@ function SessionSidebarNavInner() {
   }, [sessions, archivedSessionIds, enabledConnectorIds, q]);
 
   const liveBucket = useMemo(
-    () => visible.filter((s) => sessionIdsWithLiveAgent.has(s.id)),
+    () =>
+      visible.filter(
+        (s) => sessionIdsWithLiveAgent.has(s.id) || s.kind === "live",
+      ),
     [visible, sessionIdsWithLiveAgent],
   );
 
@@ -167,9 +174,16 @@ function SessionSidebarNavInner() {
                   >
                     <SidebarMenuButton
                       render={
-                        <Link href={chatHref(s.id)} scroll={false} />
+                        <Link
+                          href={s.kind === "live" ? "/live" : chatHref(s.id)}
+                          scroll={false}
+                        />
                       }
-                      isActive={rowIsActive(s.id)}
+                      isActive={
+                        s.kind === "live"
+                          ? liveOpen
+                          : rowIsActive(s.id)
+                      }
                       tooltip={s.title || s.source}
                       className={cn(
                         "h-auto min-h-8 py-1.5 pr-9",
@@ -190,19 +204,21 @@ function SessionSidebarNavInner() {
                         LIVE
                       </SidebarMenuBadge>
                     </SidebarMenuButton>
-                    <button
-                      type="button"
-                      aria-label={`Archive ${s.title || "session"}`}
-                      title="Archive"
-                      className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent absolute top-1/2 right-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/row:opacity-100"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        archiveSession(s.id);
-                      }}
-                    >
-                      <ArchiveIcon className="size-3.5" />
-                    </button>
+                    {s.kind !== "live" ? (
+                      <button
+                        type="button"
+                        aria-label={`Archive ${s.title || "session"}`}
+                        title="Archive"
+                        className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent absolute top-1/2 right-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/row:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          archiveSession(s.id);
+                        }}
+                      >
+                        <ArchiveIcon className="size-3.5" />
+                      </button>
+                    ) : null}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

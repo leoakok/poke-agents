@@ -87,7 +87,7 @@ Use when the client cannot read MCP **resources** — same content as `poke-agen
 
 **Note:** Does not return headless `run_id` or CLI resume ids.
 
-**HTTP:** `/api/sessions` accepts `editor`, `folder`, `limit`.
+**HTTP:** `/api/sessions` accepts `editor`, `folder`, `limit` (default **10**), `offset`. Response includes `total_count`, `has_more`, `offset`, `limit`.
 
 ---
 

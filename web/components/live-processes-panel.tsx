@@ -44,7 +44,7 @@ function cliFamilyLabel(cli: AgentProcessRow["cli"]): string | null {
 
 export function LiveProcessesPanel({ className }: { className?: string }) {
   const router = useRouter();
-  const { sessions, liveRuntime, liveSse, refreshLiveSnapshot } =
+  const { diskSessions, liveRuntime, liveSse, refreshLiveSnapshot } =
     useDashboardData();
 
   const [stoppingPid, setStoppingPid] = useState<number | null>(null);
@@ -155,7 +155,7 @@ export function LiveProcessesPanel({ className }: { className?: string }) {
                   const cliLbl = cliFamilyLabel(p.cli);
                   const isSel = selectedLivePid === p.pid;
                   const { resume, matchingSessionIds } = buildLiveResumeIndex(
-                    sessions,
+                    diskSessions,
                     p.command,
                   );
                   const singleChatTarget =

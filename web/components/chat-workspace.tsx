@@ -28,6 +28,7 @@ export function ChatWorkspace() {
 
   const {
     sessions,
+    diskSessions,
     liveRuntime,
     archiveSession,
     archivedSessionIds,
@@ -46,17 +47,32 @@ export function ChatWorkspace() {
   const isLive = useMemo(() => {
     if (!sessionId || !liveRuntime || liveRuntime.ok !== true) return false;
     for (const p of liveRuntime.processes) {
-      const { matchingSessionIds } = buildLiveResumeIndex(sessions, p.command);
+      const { matchingSessionIds } = buildLiveResumeIndex(
+        diskSessions,
+        p.command,
+      );
       if (matchingSessionIds.includes(sessionId)) return true;
     }
     return false;
-  }, [sessionId, liveRuntime, sessions]);
+  }, [sessionId, liveRuntime, diskSessions]);
+
+  useEffect(() => {
+    if (sessionId?.startsWith("live:pid:")) {
+      router.replace("/live");
+    }
+  }, [sessionId, router]);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
       if (!sessionId) {
+        setDetailMessages([]);
+        setDetailError(null);
+        setDetailLoading(false);
+        return;
+      }
+      if (sessionId.startsWith("live:pid:")) {
         setDetailMessages([]);
         setDetailError(null);
         setDetailLoading(false);

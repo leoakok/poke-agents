@@ -96,6 +96,15 @@ export const sessionsInput = {
     .describe(
       "Max sessions after merge (default **50**, max **500**). Lower this when listing over slow HTTP MCP.",
     ),
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .max(999_999)
+    .optional()
+    .describe(
+      "Skip this many rows after merge/sort (default **0**). Use with **`limit`** to page **`sessions`** without loading the full list.",
+    ),
   folder: z
     .string()
     .optional()
@@ -182,6 +191,18 @@ export const sessionsOutput = {
   sessions: z
     .array(sessionRow)
     .describe("Merged, newest-first list (length ≤ **`limit`**)."),
+  total_count: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Rows matching filters before pagination — use with **`has_more`**."),
+  offset: z.number().int().nonnegative().optional(),
+  limit: z.number().int().positive().optional(),
+  has_more: z
+    .boolean()
+    .optional()
+    .describe("True when **`offset` + len(sessions) < total_count**."),
 };
 
 export const sessionOutputShape = {

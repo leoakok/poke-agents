@@ -40,10 +40,20 @@ export type SessionRow = {
   title?: string;
   last_updated_at?: string;
   project_path?: string;
+  /** Synthetic row from agent-runtime (no disk transcript). */
+  kind?: "disk" | "live";
+  pid?: number;
 };
 
 export type SessionsResponse =
-  | { ok: true; sessions: SessionRow[] }
+  | {
+      ok: true;
+      sessions: SessionRow[];
+      total_count?: number;
+      offset?: number;
+      limit?: number;
+      has_more?: boolean;
+    }
   | { ok: false; error: string };
 
 export type SessionMessage = {
@@ -140,10 +150,13 @@ export async function fetchConnectors(): Promise<ConnectorsResponse> {
 
 function sessionsPathWithQuery(params?: {
   limit?: number;
+  offset?: number;
   editor?: string;
 }): string {
   const u = new URL("/api/sessions", "http://_");
-  if (params?.limit) u.searchParams.set("limit", String(params.limit));
+  if (params?.limit != null) u.searchParams.set("limit", String(params.limit));
+  if (params?.offset != null)
+    u.searchParams.set("offset", String(params.offset));
   if (params?.editor) u.searchParams.set("editor", params.editor);
   return `${u.pathname}${u.search}`;
 }
@@ -156,6 +169,7 @@ function sessionPathWithQuery(sessionId: string): string {
 
 export async function fetchSessions(params?: {
   limit?: number;
+  offset?: number;
   editor?: string;
 }): Promise<SessionsResponse> {
   const path = sessionsPathWithQuery(params);

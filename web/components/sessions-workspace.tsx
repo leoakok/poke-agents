@@ -43,6 +43,11 @@ export function SessionsWorkspace() {
 
   const {
     sessions,
+    diskSessions,
+    diskTotalCount,
+    diskHasMore,
+    loadMoreDiskSessions,
+    loadingMoreDisk,
     connectors,
     editors,
     loading,
@@ -101,11 +106,14 @@ export function SessionsWorkspace() {
     const set = new Set<string>();
     if (!liveRuntime || liveRuntime.ok !== true) return set;
     for (const p of liveRuntime.processes) {
-      const { matchingSessionIds } = buildLiveResumeIndex(sessions, p.command);
+      const { matchingSessionIds } = buildLiveResumeIndex(
+        diskSessions,
+        p.command,
+      );
       for (const id of matchingSessionIds) set.add(id);
     }
     return set;
-  }, [liveRuntime, sessions]);
+  }, [liveRuntime, diskSessions]);
 
   const archivedSessions = useMemo(
     () => sessions.filter((s) => archivedSessionIds.has(s.id)),
@@ -141,8 +149,12 @@ export function SessionsWorkspace() {
 
   const tableSessions = searchFiltered;
 
-  const openChat = useCallback(
+  const openRow = useCallback(
     (id: string) => {
+      if (id.startsWith("live:pid:")) {
+        router.push("/live");
+        return;
+      }
       router.push(chatHref(id));
     },
     [router],
@@ -205,7 +217,10 @@ export function SessionsWorkspace() {
         </div>
 
         <p className="text-muted-foreground text-xs">
-          {tableSessions.length} shown
+          {tableSessions.length} in view
+          {diskTotalCount != null
+            ? ` · ${diskTotalCount} saved on disk (loaded ${diskSessions.length})`
+            : ""}
           {archivedSessions.length > 0
             ? ` · ${archivedSessions.length} archived`
             : ""}
@@ -279,17 +294,24 @@ export function SessionsWorkspace() {
                       key={s.id}
                       className={cn(
                         "border-border hover:bg-muted/50 cursor-pointer border-b transition-colors",
-                        sessionIdsWithLiveAgent.has(s.id) &&
+                        (sessionIdsWithLiveAgent.has(s.id) || s.kind === "live") &&
                           "bg-emerald-500/[0.06]",
                       )}
-                      onClick={() => openChat(s.id)}
+                      onClick={() => openRow(s.id)}
                     >
                       <td className="max-w-[min(12rem,40vw)] px-3 py-2 align-middle">
                         <span className="inline-flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium">
                             {s.title || "(untitled)"}
                           </span>
-                          {sessionIdsWithLiveAgent.has(s.id) ? (
+                          {s.kind === "live" ? (
+                            <Badge
+                              variant="outline"
+                              className="h-5 shrink-0 border-amber-500/40 px-1.5 text-[0.6rem] text-amber-800 dark:text-amber-400"
+                            >
+                              Live
+                            </Badge>
+                          ) : sessionIdsWithLiveAgent.has(s.id) ? (
                             <Badge
                               variant="outline"
                               className="h-5 shrink-0 border-emerald-500/40 px-1.5 text-[0.6rem] text-emerald-700 dark:text-emerald-400"
@@ -308,23 +330,40 @@ export function SessionsWorkspace() {
                           : "—"}
                       </td>
                       <td className="px-3 py-2 text-right align-middle whitespace-nowrap">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            archiveSession(s.id);
-                          }}
-                        >
-                          Archive
-                        </Button>
+                        {s.kind === "live" ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              archiveSession(s.id);
+                            }}
+                          >
+                            Archive
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {diskHasMore ? (
+                <div className="border-border border-t p-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingMoreDisk}
+                    onClick={() => void loadMoreDiskSessions()}
+                  >
+                    {loadingMoreDisk ? "Loading…" : "Load more from disk"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
 

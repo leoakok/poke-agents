@@ -33,7 +33,14 @@ function corsApi(req: Request, res: Response, next: () => void): void {
 function parseLimit(q: unknown): number {
   const n = typeof q === "string" ? Number(q) : NaN;
   if (Number.isFinite(n) && n > 0 && n <= 500) return Math.floor(n);
-  return 50;
+  /** Dashboard default: small first page (use offset + limit for more). */
+  return 10;
+}
+
+function parseOffset(q: unknown): number {
+  const n = typeof q === "string" ? Number(q) : NaN;
+  if (Number.isFinite(n) && n >= 0 && n < 1_000_000) return Math.floor(n);
+  return 0;
 }
 
 /**
@@ -65,20 +72,27 @@ export function mountDashboardApi(app: Express): void {
       const folder =
         typeof req.query.folder === "string" ? req.query.folder : undefined;
       const limit = parseLimit(req.query.limit);
-      const sessions = await listSessionsForProfile({
+      const offset = parseOffset(req.query.offset);
+      const page = await listSessionsForProfile({
         source: editor,
         limit,
+        offset,
         projectPath: folder,
       });
+      const has_more = offset + page.sessions.length < page.total_count;
       res.json({
         ok: true as const,
-        sessions: sessions.map((s) => ({
+        sessions: page.sessions.map((s) => ({
           id: s.id,
           source: s.source,
           title: s.title,
           last_updated_at: s.lastUpdatedAt,
           project_path: s.projectPath,
         })),
+        total_count: page.total_count,
+        offset,
+        limit,
+        has_more,
       });
     } catch (e) {
       res.status(500).json({

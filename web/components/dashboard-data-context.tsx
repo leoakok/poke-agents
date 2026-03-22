@@ -24,11 +24,21 @@ import {
   loadArchivedSessionIds,
   persistArchivedSessionIds,
 } from "@/lib/dashboard-storage";
+import { liveCliSessionsNotOnDisk } from "@/lib/live-cli-sessions";
+
+const SESSIONS_PAGE_SIZE = 10;
 
 type LiveSse = "connecting" | "open" | "error";
 
 type DashboardDataContextValue = {
+  /** Disk rows + synthetic live CLI rows (live rows first). */
   sessions: SessionRow[];
+  diskSessions: SessionRow[];
+  /** Total saved sessions on disk matching server filters (not including live-only rows). */
+  diskTotalCount: number | null;
+  diskHasMore: boolean;
+  loadMoreDiskSessions: () => Promise<void>;
+  loadingMoreDisk: boolean;
   connectors: ConnectorRow[];
   editors: string[];
   loading: boolean;
@@ -47,7 +57,10 @@ const DashboardDataContext = createContext<DashboardDataContextValue | null>(
 );
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [diskSessions, setDiskSessions] = useState<SessionRow[]>([]);
+  const [diskTotalCount, setDiskTotalCount] = useState<number | null>(null);
+  const [diskHasMore, setDiskHasMore] = useState(false);
+  const [loadingMoreDisk, setLoadingMoreDisk] = useState(false);
   const [connectors, setConnectors] = useState<ConnectorRow[]>([]);
   const [editors, setEditors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +111,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     try {
       const [c, s] = await Promise.all([
         fetchConnectors(),
-        fetchSessions({ limit: 250 }),
+        fetchSessions({ limit: SESSIONS_PAGE_SIZE, offset: 0 }),
       ]);
       if (!c.ok) {
         setError(c.error);
@@ -110,19 +123,50 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       }
       if (!s.ok) {
         setError((e) => e ?? s.error);
-        setSessions([]);
+        setDiskSessions([]);
+        setDiskTotalCount(null);
+        setDiskHasMore(false);
       } else {
-        setSessions(s.sessions);
+        setDiskSessions(s.sessions);
+        setDiskTotalCount(
+          typeof s.total_count === "number" ? s.total_count : s.sessions.length,
+        );
+        setDiskHasMore(Boolean(s.has_more));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setConnectors([]);
       setEditors([]);
-      setSessions([]);
+      setDiskSessions([]);
+      setDiskTotalCount(null);
+      setDiskHasMore(false);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const loadMoreDiskSessions = useCallback(async () => {
+    if (!diskHasMore || loadingMoreDisk || loading) return;
+    setLoadingMoreDisk(true);
+    try {
+      const s = await fetchSessions({
+        limit: SESSIONS_PAGE_SIZE,
+        offset: diskSessions.length,
+      });
+      if (!s.ok) return;
+      setDiskSessions((prev) => {
+        const seen = new Set(prev.map((r) => r.id));
+        const next = s.sessions.filter((r) => !seen.has(r.id));
+        return [...prev, ...next];
+      });
+      if (typeof s.total_count === "number") {
+        setDiskTotalCount(s.total_count);
+      }
+      setDiskHasMore(Boolean(s.has_more));
+    } finally {
+      setLoadingMoreDisk(false);
+    }
+  }, [diskHasMore, diskSessions.length, loading, loadingMoreDisk]);
 
   useEffect(() => {
     void refresh();
@@ -148,21 +192,15 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     return () => es.close();
   }, []);
 
-  useEffect(() => {
-    if (
-      !liveRuntime ||
-      liveRuntime.ok !== true ||
-      liveRuntime.processes.length === 0
-    ) {
-      return;
-    }
-    const id = window.setInterval(() => {
-      void fetchSessions({ limit: 250 }).then((r) => {
-        if (r.ok) setSessions(r.sessions);
-      });
-    }, 4000);
-    return () => window.clearInterval(id);
-  }, [liveRuntime]);
+  const liveOnlyRows = useMemo(
+    () => liveCliSessionsNotOnDisk(liveRuntime, diskSessions),
+    [liveRuntime, diskSessions],
+  );
+
+  const sessions = useMemo(
+    () => [...liveOnlyRows, ...diskSessions],
+    [liveOnlyRows, diskSessions],
+  );
 
   const refreshLiveSnapshot = useCallback(() => {
     void fetchAgentRuntime().then(setLiveRuntime);
@@ -171,6 +209,11 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       sessions,
+      diskSessions,
+      diskTotalCount,
+      diskHasMore,
+      loadMoreDiskSessions,
+      loadingMoreDisk,
       connectors,
       editors,
       loading,
@@ -185,6 +228,11 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     }),
     [
       sessions,
+      diskSessions,
+      diskTotalCount,
+      diskHasMore,
+      loadMoreDiskSessions,
+      loadingMoreDisk,
       connectors,
       editors,
       loading,

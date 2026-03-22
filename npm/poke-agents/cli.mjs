@@ -376,8 +376,15 @@ async function main() {
     process.exit(ins.status ?? 1);
   }
 
-  line(color.dim(" npm run build…"));
-  const bd = spawnSync(npm, ["run", "build"], {
+  const buildScript = skipWeb ? "build:mcp" : "build";
+  line(
+    color.dim(
+      skipWeb
+        ? " npm run build:mcp… (skipping Next.js — MCP only)"
+        : " npm run build…",
+    ),
+  );
+  const bd = spawnSync(npm, ["run", buildScript], {
     cwd: repoDir,
     stdio: "inherit",
     env: process.env,
@@ -385,7 +392,9 @@ async function main() {
   if (bd.status !== 0) {
     line(
       color.red(
-        " npm run build failed (native modules like better-sqlite3 may need build tools).",
+        skipWeb
+          ? " npm run build:mcp failed (native modules like better-sqlite3 may need build tools)."
+          : " npm run build failed (native modules like better-sqlite3 may need build tools).",
       ),
     );
     printStarCta();

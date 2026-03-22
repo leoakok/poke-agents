@@ -3,7 +3,7 @@
 One command — same pattern as `@leokok/poke-apple-music`:
 
 1. Keeps a cached git clone under `~/.local/share/poke-agents/repo`
-2. `npm install` + `npm run build` (MCP server + Next dashboard)
+2. `npm install` + build: full `npm run build` (MCP + Next), or **`npm run build:mcp` only** when using **`--skip-web`** / `POKE_AGENTS_SKIP_WEB=1` (no Turbopack/Next step)
 3. Starts **MCP HTTP**, **Next.js UI**, and **`poke tunnel`** to register the MCP with Poke
 
 ```bash

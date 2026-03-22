@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/leoakok/poke-agents/compare/v1.2.2...v1.3.0) (2026-03-22)
+
+
+### Features
+
+* **control:** add Claude Code headless backend ([4a8ac57](https://github.com/leoakok/poke-agents/commit/4a8ac57d0f468ecc95839562967827413becabe6))
+
 ## [1.2.2](https://github.com/leoakok/poke-agents/compare/v1.2.1...v1.2.2) (2026-03-22)
 
 

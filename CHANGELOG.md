@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/leoakok/poke-agents/compare/v1.2.1...v1.2.2) (2026-03-22)
+
+
+### Performance Improvements
+
+* **sessions:** profile-scoped scan, paginated API, live CLI rows in list ([271e332](https://github.com/leoakok/poke-agents/commit/271e332609cb62bc8b8bfeb649a880f74829a805))
+
 ## [1.2.1](https://github.com/leoakok/poke-agents/compare/v1.2.0...v1.2.1) (2026-03-22)
 
 

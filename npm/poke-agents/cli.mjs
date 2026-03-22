@@ -21,6 +21,32 @@ const autoYes =
   process.argv.includes("--yes") ||
   process.env.POKE_AGENTS_YES === "1";
 
+/** CLI-only mode: MCP HTTP (+ tunnel if not skipped) — no Next.js dashboard. */
+const skipWebCli = process.argv.includes("--skip-web");
+const skipWeb =
+  skipWebCli || process.env.POKE_AGENTS_SKIP_WEB === "1";
+
+function argAfter(flag) {
+  const i = process.argv.indexOf(flag);
+  if (i === -1) return null;
+  const v = process.argv[i + 1];
+  if (v == null || String(v).startsWith("-")) return null;
+  return String(v);
+}
+
+function slugifyMcpServerName(s) {
+  const t = String(s)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (t.length === 0) return "poke-agents";
+  return t.length > 64 ? t.slice(0, 64) : t;
+}
+
+/** Sets Poke tunnel `-n` label and MCP `initialize` server name (slug). */
+const mcpNameCli = argAfter("--mcp-name");
+
 const color =
   process.stdout.isTTY && !process.env.NO_COLOR
     ? {
@@ -367,19 +393,45 @@ async function main() {
   }
 
   line(color.green(" You're all set."));
-  line(
-    ` ${color.dim("Poke can use your agents (MCP + dashboard + tunnel) while this window stays open.")}`,
-  );
+  if (mcpNameCli) {
+    line(
+      ` ${color.dim(`Poke tunnel label: "${mcpNameCli}" · MCP server id: ${slugifyMcpServerName(mcpNameCli)}`)}`,
+    );
+  }
+  if (skipWeb) {
+    line(
+      ` ${color.dim("MCP HTTP only (no dashboard). Add POKE_AGENTS_SKIP_TUNNEL=1 for fully local.")}`,
+    );
+  } else {
+    line(
+      ` ${color.dim("Poke can use your agents (MCP + dashboard + tunnel) while this window stays open.")}`,
+    );
+  }
   line(` ${color.dim("Press Ctrl+C to stop when you're done.")}`);
   line("");
   printStarCta();
-  line(color.dim(" Output from npm / Next / tunnel follows."));
+  line(
+    color.dim(
+      skipWeb
+        ? " Output from MCP (and tunnel if enabled) follows."
+        : " Output from npm / Next / tunnel follows.",
+    ),
+  );
   line("");
 
   const run = spawn(npm, ["run", "start:poke"], {
     cwd: repoDir,
     stdio: "inherit",
-    env: process.env,
+    env: {
+      ...process.env,
+      ...(skipWebCli ? { POKE_AGENTS_SKIP_WEB: "1" } : {}),
+      ...(mcpNameCli
+        ? {
+            POKE_AGENTS_TUNNEL_NAME: mcpNameCli,
+            POKE_AGENTS_MCP_SERVER_NAME: slugifyMcpServerName(mcpNameCli),
+          }
+        : {}),
+    },
   });
   run.on("error", (err) => {
     line(color.red(` Couldn't start: ${err.message}`));

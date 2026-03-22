@@ -12,6 +12,10 @@ export function sessionMatchesConnector(
   if (id === "claude" && src.includes("claude")) return true;
   if (id === "cursor" && src.startsWith("cursor")) return true;
   if (id === "cursor-agent" && src.includes("cursor")) return true;
+  if (id === "opencode" && (src === "opencode" || src.startsWith("opencode")))
+    return true;
+  if (id === "codex" && (src === "codex" || src.startsWith("codex")))
+    return true;
   if (id === "vscode" && (src.includes("vscode") || src.includes("copilot")))
     return true;
   return false;

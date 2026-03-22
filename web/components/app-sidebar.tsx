@@ -2,16 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ActivityIcon,
-  HomeIcon,
-  LayoutListIcon,
-  RadioIcon,
-  SettingsIcon,
-  SparklesIcon,
-} from "lucide-react";
 
 import { SessionSidebarNav } from "@/components/session-sidebar-nav";
+import { DASHBOARD_NAV } from "@/lib/dashboard-nav";
+import { POKE_AGENTS_REPO_URL } from "@/lib/repo";
 import {
   Sidebar,
   SidebarContent,
@@ -27,71 +21,34 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-const NAV = [
-  { href: "/", label: "Overview", icon: HomeIcon, tooltip: "Home & status" },
-  {
-    href: "/sessions",
-    label: "Sessions",
-    icon: LayoutListIcon,
-    tooltip: "Chats & transcripts",
-  },
-  {
-    href: "/live",
-    label: "Live",
-    icon: ActivityIcon,
-    tooltip: "CLI agent processes",
-  },
-  {
-    href: "/mcp-traffic",
-    label: "MCP log",
-    icon: RadioIcon,
-    tooltip: "Request/response traffic (live)",
-  },
-  {
-    href: "/templates",
-    label: "Templates",
-    icon: SparklesIcon,
-    tooltip: "Agent personas",
-  },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: SettingsIcon,
-    tooltip: "Connectors",
-  },
-] as const;
-
 export function AppSidebar() {
   const pathname = usePathname();
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="flex flex-col gap-1 border-b border-sidebar-border p-4">
-        <span className="text-sm font-semibold tracking-tight">
-          Poke agents
-        </span>
-        <span className="text-muted-foreground group-data-[collapsible=icon]:hidden text-xs leading-snug">
-          Local dashboard for the poke-agents MCP server
-        </span>
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3.5">
+        <p className="text-[13px] font-medium tracking-tight">Poke agents</p>
+        <p className="text-muted-foreground group-data-[collapsible=icon]:hidden text-[11px] leading-snug">
+          MCP dashboard
+        </p>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigate</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map(({ href, label, icon: Icon, tooltip }) => (
+              {DASHBOARD_NAV.map(({ href, label, tooltip, Icon }) => (
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     render={<Link href={href} />}
                     isActive={
                       href === "/"
                         ? pathname === "/"
-                        : pathname === href ||
-                          pathname.startsWith(`${href}/`)
+                        : pathname === href || pathname.startsWith(`${href}/`)
                     }
                     tooltip={tooltip}
                   >
-                    <Icon />
+                    <Icon className="size-4" />
                     <span>{label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -103,27 +60,16 @@ export function AppSidebar() {
         <SessionSidebarNav />
       </SidebarContent>
       <SidebarSeparator />
-      <SidebarFooter className="text-muted-foreground group-data-[collapsible=icon]:hidden space-y-2 p-4 text-[0.65rem] leading-snug">
-        <p>
-          <a
-            href="https://github.com/leoakok/poke-agents"
-            className="text-sidebar-foreground font-medium underline-offset-2 hover:underline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            poke-agents on GitHub
-          </a>
-          {" · "}
-          MIT
-        </p>
-        <p>
-          Advanced: set{" "}
-          <code className="bg-sidebar-accent rounded px-1 py-0.5 font-mono">
-            POKE_AGENTS_MCP_ORIGIN
-          </code>{" "}
-          in <code className="font-mono">web/.env.local</code> if the API is not
-          on the default port.
-        </p>
+      <SidebarFooter className="text-muted-foreground group-data-[collapsible=icon]:hidden px-3 py-3 text-[11px] leading-snug">
+        <a
+          href={POKE_AGENTS_REPO_URL}
+          className="text-sidebar-foreground font-medium underline-offset-2 hover:underline"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub
+        </a>
+        <span className="text-muted-foreground"> · MIT</span>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

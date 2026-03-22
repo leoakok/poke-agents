@@ -12,6 +12,8 @@ const CURSOR_NOTES = [
   "`control_agent` passes `--workspace` when `workspace` is set (resolved vs `cwd`); otherwise only spawn `cwd` is used.",
   "`create-chat` passes `--trust` by default; set `POKE_AGENTS_CURSOR_CREATE_CHAT_TRUST=0` to match older behavior without `--trust`.",
   "Headless `agent -p` maps MCP → CLI roughly as: `format` → `--output-format`; `stream` → `--stream-partial-output` (with `stream-json`); `resume`/`continue_chat` → `--resume`/`--continue`; `model`/`mode`/`plan`/`cloud`; `trust` → `--trust`; `force` → `--force` (`--yolo` is CLI alias of `--force`, not a separate MCP field); `approve_mcp` → `--approve-mcps`; `sandbox` → `--sandbox`; `workspace` → `--workspace`. Auth: set `CURSOR_API_KEY` in the environment (not an MCP argument).",
+  "`trust` (default on) ≠ `force`: `trust` accepts the workspace folder; `force` relaxes command/tool execution gates. If the agent describes a shell command as “rejected” or never runs it, retry with `force: true` when the user explicitly wants execution.",
+  "Omit `mode` and `plan` for normal coding runs; `mode` is only `plan` or `ask` (read-only). There is no `build` mode flag — default behavior is the full agent.",
   "Default `control_agent` also passes `--sandbox disabled` (plus `trust` / `approve-mcps`) so headless runs are not stuck in Cursor’s network-restricted sandbox; set `sandbox: \"enabled\"` to isolate.",
   "The CLI cannot open a GUI browser — use Poke’s (or your orchestrator’s) own HTTP/search and pass excerpts into `control_agent.prompt`, or rely on shell/network inside the agent when sandbox is off.",
   "Failures include `error_classification`, `cursor_stderr_message` (verbatim line when possible), and `hint` — not only a generic “unavailable”.",
@@ -129,6 +131,12 @@ export function controlCapabilitiesPayload(): Record<string, unknown> {
         "Set to 0/false/off to omit `--trust` on `agent create-chat` (default: trust on)",
       POKE_AGENTS_TEMPLATES_PATH:
         "Optional absolute path for custom `agent_templates` JSON (default ~/.poke-agents/agent-templates.json)",
+      POKE_AGENTS_TUNNEL_NAME:
+        "Human-readable name passed to `poke tunnel … -n` when the launcher starts the tunnel (default: Poke agents)",
+      POKE_AGENTS_MCP_SERVER_NAME:
+        "MCP `initialize` server `name` (stable id for clients). Default `poke-agents`; if unset and `POKE_AGENTS_TUNNEL_NAME` is set, a slug of that label is used",
+      POKE_AGENTS_NO_OPEN:
+        "Set to 1 to skip opening the default browser when `scripts/poke-run.mjs` starts the Next dashboard",
     },
   };
 }

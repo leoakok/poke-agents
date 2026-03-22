@@ -40,7 +40,7 @@ Several adapters use **`better-sqlite3`** (native). It is declared in the root `
 
 ## MCP server
 
-Implemented under `src/mcp/`: **stdio** (default) for editor MCP clients; **`--http`** + `/mcp` for Poke (`poke tunnel`). Read tools match [`MCP_TOOLS.md`](MCP_TOOLS.md); listing respects [`profile.ts`](../src/profile.ts) (`POKE_AGENTS_EDITORS`, default `cursor,opencode`).
+Implemented under `src/mcp/`: **stdio** (default) for editor MCP clients; **`--http`** + `/mcp` for Poke (`poke tunnel`). Read tools match [`MCP_TOOLS.md`](MCP_TOOLS.md); listing respects [`profile.ts`](../src/profile.ts) (`POKE_AGENTS_EDITORS`, default `cursor,opencode,codex`).
 
 ## Control plane (`src/control/`)
 

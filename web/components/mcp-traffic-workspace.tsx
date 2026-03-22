@@ -10,6 +10,7 @@ import {
 } from "react";
 import { RadioIcon, Trash2Icon } from "lucide-react";
 
+import { DashboardBody } from "@/components/dashboard-body";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -139,8 +140,8 @@ function McpTrafficRow({ entry: e }: { entry: McpTrafficEntry }) {
   const charCount = formatted.length;
 
   return (
-    <li className="px-3 py-2.5">
-      <div className="mb-1 flex flex-wrap items-center gap-2">
+    <li className="min-w-0 px-3 py-2.5">
+      <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
         <span className="text-muted-foreground shrink-0">
           {formatTime(e.ts)}
         </span>
@@ -162,8 +163,8 @@ function McpTrafficRow({ entry: e }: { entry: McpTrafficEntry }) {
           <span className="text-muted-foreground truncate">{e.method}</span>
         ) : null}
       </div>
-      <details className="group border-border/60 bg-muted/20 mt-1 rounded-md border">
-        <summary className="text-muted-foreground hover:bg-muted/40 flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[0.65rem] font-medium select-none [&::-webkit-details-marker]:hidden">
+      <details className="group border-border/60 bg-muted/20 mt-1 max-w-full min-w-0 rounded-md border">
+        <summary className="text-muted-foreground hover:bg-muted/40 flex min-w-0 cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[0.65rem] font-medium select-none [&::-webkit-details-marker]:hidden">
           <span
             className="inline-block w-3 shrink-0 text-center opacity-70 transition-transform duration-150 group-open:rotate-90"
             aria-hidden
@@ -176,7 +177,7 @@ function McpTrafficRow({ entry: e }: { entry: McpTrafficEntry }) {
             {charCount.toLocaleString()} chars
           </span>
         </summary>
-        <pre className="text-foreground border-border max-h-[min(55vh,26rem)] overflow-auto border-t bg-background/60 p-2.5 font-mono text-[0.7rem] leading-relaxed whitespace-pre">
+        <pre className="text-foreground border-border max-h-[min(50dvh,20rem)] min-h-0 min-w-0 max-w-full overflow-auto border-t bg-background/60 p-2.5 font-mono text-[0.7rem] leading-relaxed whitespace-pre-wrap break-words">
           {formatted}
         </pre>
       </details>
@@ -268,21 +269,16 @@ export function McpTrafficWorkspace() {
   }, []);
 
   return (
-    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            MCP traffic
-          </h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
-            Live JSON-RPC requests and responses to{" "}
-            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
-              POST /mcp
-            </code>
-            . Same-origin dashboard proxies this stream from the MCP HTTP
-            server.
-          </p>
-        </div>
+    <DashboardBody variant="fixed" className="gap-4">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <p className="text-muted-foreground max-w-2xl text-xs leading-relaxed">
+          Live <code className="bg-muted rounded px-1 py-0.5 font-mono">POST /mcp</code>{" "}
+          traffic via this app. Disable with{" "}
+          <code className="bg-muted rounded px-1 py-0.5 font-mono">
+            POKE_AGENTS_MCP_TRAFFIC=0
+          </code>{" "}
+          on the MCP process. Large bodies may be truncated.
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
@@ -313,34 +309,26 @@ export function McpTrafficWorkspace() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
       >
         {error ? (
-          <p className="text-muted-foreground shrink-0 text-sm">{error}</p>
+          <p className="text-muted-foreground shrink-0 py-2 text-sm">{error}</p>
         ) : null}
 
-        <div className="bg-card border-border min-h-[12rem] rounded-xl border text-xs shadow-sm">
+        <div className="bg-card border-border min-w-0 rounded-xl border text-xs shadow-sm">
           {entries.length === 0 ? (
             <p className="text-muted-foreground p-6 text-sm">
-              No traffic yet. Trigger the MCP from Poke or your editor — events
-              appear here in real time.
+              No traffic yet. Trigger the MCP from Poke or your editor.
             </p>
           ) : (
-            <ul className="divide-border divide-y">
+            <ul className="divide-border divide-y overflow-x-hidden">
               {entries.map((e) => (
                 <McpTrafficRow key={e.id} entry={e} />
               ))}
             </ul>
           )}
         </div>
-
-        <p className="text-muted-foreground shrink-0 text-[0.65rem] leading-relaxed">
-          Disable logging with{" "}
-          <code className="bg-muted rounded px-1">POKE_AGENTS_MCP_TRAFFIC=0</code>{" "}
-          on the MCP process. Large bodies and obvious secret keys are truncated
-          or redacted.
-        </p>
       </div>
-    </div>
+    </DashboardBody>
   );
 }

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getAllowedEditorIds } from "../profile.js";
+import { resolveMcpServerName } from "./mcp-server-identity.js";
+import { buildConnectorsPayload } from "../connectors/connectors-payload.js";
 import {
-  activeConnectors,
   getMessagesForProfile,
   listSessionsForProfile,
 } from "../connectors/registry.js";
@@ -23,7 +23,7 @@ import {
 export function createPokeAgentsMcpServer(): McpServer {
   const mcp = new McpServer(
     {
-      name: "poke-agents",
+      name: resolveMcpServerName(),
       version: "0.2.0",
     },
     {
@@ -39,21 +39,11 @@ export function createPokeAgentsMcpServer(): McpServer {
       outputSchema: adaptersOutput,
     },
     withMcpToolLogging("adapters", async () => {
-      const connectors = await Promise.all(
-        activeConnectors().map(async (c) => {
-          const h = await c.health();
-          return {
-            id: c.id,
-            display_name: c.displayName,
-            available: h.available,
-            detail: h.detail,
-          };
-        })
-      );
+      const { connectors, editors } = await buildConnectorsPayload();
       return toolStructured({
         ok: true as const,
         connectors,
-        editors: [...getAllowedEditorIds()],
+        editors,
       });
     })
   );

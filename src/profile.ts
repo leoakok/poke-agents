@@ -1,8 +1,9 @@
 /**
- * Which vendored editor adapters are active. Default first step: Cursor + OpenCode only.
- * Override: POKE_AGENTS_EDITORS=cursor,opencode,claude (comma or space separated).
+ * Which vendored editor adapters are active for merged disk sessions + MCP `sessions`.
+ * Default: Cursor, OpenCode, and Codex (saved threads under ~/.codex/sessions).
+ * Override: POKE_AGENTS_EDITORS=cursor,opencode (comma or space separated).
  */
-const DEFAULT_EDITORS = ["cursor", "opencode"] as const;
+const DEFAULT_EDITORS = ["cursor", "opencode", "codex"] as const;
 
 function parseEditorList(raw: string | undefined): string[] {
   if (raw == null || raw.trim() === "") {

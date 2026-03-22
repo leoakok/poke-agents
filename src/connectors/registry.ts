@@ -192,7 +192,7 @@ function editorNameForChat(
   return editorForChatSource(editors, src)?.name;
 }
 
-/** Connectors enabled by `POKE_AGENTS_EDITORS` (default: cursor, opencode). */
+/** Connectors enabled by `POKE_AGENTS_EDITORS` (default: cursor, opencode, codex). */
 export function activeConnectors(): readonly AgentConnector[] {
   const allowed = getAllowedEditorIds();
   return allConnectors.filter((c) => allowed.has(c.id));

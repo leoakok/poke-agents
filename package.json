@@ -15,6 +15,8 @@
     "lint": "npm run -w web lint",
     "test": "npm run test:smoke",
     "test:smoke": "npm run build:mcp && POKE_AGENTS_MCP_LOG=0 node --test dist/smoke/mcp-tools-smoke.test.js",
+    "test:smoke:control": "npm run build:mcp && POKE_AGENTS_MCP_LOG=0 POKE_AGENTS_SMOKE_CONTROL_CLIS=1 node --test dist/smoke/control-clis-smoke.test.js",
+    "test:smoke:all": "npm run build:mcp && POKE_AGENTS_MCP_LOG=0 POKE_AGENTS_SMOKE_CONTROL_CLIS=1 node --test dist/smoke/mcp-tools-smoke.test.js dist/smoke/control-clis-smoke.test.js",
     "build": "npm run build:mcp && npm run -w web build",
     "build:mcp": "tsc -p tsconfig.build.json",
     "prepack": "npm run build",

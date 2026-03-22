@@ -73,6 +73,12 @@ describe(
     assert.equal(s.ok, true);
     assert.ok(Array.isArray(s.connectors));
     assert.ok(Array.isArray(s.editors));
+    const ids = new Set(
+      (s.connectors as { id: string }[]).map((c: { id: string }) => c.id),
+    );
+    for (const need of ["cursor", "opencode", "codex"]) {
+      assert.ok(ids.has(need), `adapters should list core id ${need}`);
+    }
   });
 
   test("sessions", async () => {

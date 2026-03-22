@@ -67,6 +67,28 @@ function resolveCwd(raw?: string): string {
   return process.cwd();
 }
 
+/** Fields so Poke / orchestrators never treat the immediate MCP return as the agent's final output. */
+function pokeCompletionHandoffFields(
+  callbackRegistered: boolean,
+  runId: string,
+): {
+  will_post_completion_to_poke: boolean;
+  poke_completion_notice: string;
+} {
+  if (callbackRegistered) {
+    return {
+      will_post_completion_to_poke: true,
+      poke_completion_notice:
+        "Poke: this MCP tools/call has already returned — the headless agent is still running. poke-agents will POST a completion JSON payload to X-Poke-Callback-Url (Authorization: Bearer X-Poke-Callback-Token) when the CLI process exits. Do not wait on this tool result for the final answer; use the callback or poll control_run_status / control_run_output_slice.",
+    };
+  }
+  return {
+    will_post_completion_to_poke: false,
+    poke_completion_notice:
+      `Poke: this MCP tools/call has already returned — the headless agent is still running. No callback URL+token was provided for this call, so poke-agents will not POST to Poke. Poll control_run_status with run_id "${runId}" until status is completed or failed, then use control_run_output_slice for stdout/stderr.`,
+  };
+}
+
 async function sendFinalPokeCallback(
   runId: string,
   url: string | undefined,
@@ -384,6 +406,8 @@ async function controlAgentStartCursor(
     backend,
   });
 
+  const callbackRegistered = Boolean(cb.url && cb.token);
+  const handoff = pokeCompletionHandoffFields(callbackRegistered, run.run_id);
   const hint =
     cb.url && cb.token
       ? "Background run started — completion callback when the CLI exits. Use `resume_uuid` as `resume` on the next `control_agent` call for the same chat."
@@ -394,7 +418,8 @@ async function controlAgentStartCursor(
     accepted: true,
     status: "started" as const,
     run_id: run.run_id,
-    callback_registered: Boolean(cb.url && cb.token),
+    callback_registered: callbackRegistered,
+    ...handoff,
     backend,
     cwd: resolved,
     resume_uuid: resume,
@@ -482,6 +507,8 @@ async function controlAgentStartOpenCode(
     backend,
   });
 
+  const callbackRegistered = Boolean(cb.url && cb.token);
+  const handoff = pokeCompletionHandoffFields(callbackRegistered, run.run_id);
   const hint =
     cb.url && cb.token
       ? "Background OpenCode run — completion callback includes `resume_uuid` (session id) parsed from JSON stdout when present."
@@ -492,7 +519,8 @@ async function controlAgentStartOpenCode(
     accepted: true,
     status: "started" as const,
     run_id: run.run_id,
-    callback_registered: Boolean(cb.url && cb.token),
+    callback_registered: callbackRegistered,
+    ...handoff,
     backend,
     cwd: runCwd,
     ...(resume !== undefined ? { resume_uuid: resume } : {}),
@@ -581,6 +609,8 @@ async function controlAgentStartCodex(
     backend,
   });
 
+  const callbackRegistered = Boolean(cb.url && cb.token);
+  const handoff = pokeCompletionHandoffFields(callbackRegistered, run.run_id);
   const hint =
     cb.url && cb.token
       ? "Background Codex run — completion callback includes `resume_uuid` (thread id) parsed from JSONL `thread.started` when present."
@@ -591,7 +621,8 @@ async function controlAgentStartCodex(
     accepted: true,
     status: "started" as const,
     run_id: run.run_id,
-    callback_registered: Boolean(cb.url && cb.token),
+    callback_registered: callbackRegistered,
+    ...handoff,
     backend,
     cwd: runCwd,
     ...(resume !== undefined ? { resume_uuid: resume } : {}),

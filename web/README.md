@@ -17,6 +17,13 @@ Or the published launcher:
 npx @leoakok/poke-agents@latest
 ```
 
+## Layout
+
+- **One shell** (`DashboardShell`): sidebar + top bar + single scroll column (`max-w-5xl`).
+- **One nav config** (`lib/dashboard-nav.ts`): titles, descriptions, and sidebar items stay in sync.
+- **Shared page frame** (`AppPage`): optional intro + full-width body (same as shell `max-w-5xl`).
+- **Shared body shell** (`DashboardBody`): `variant="scroll"` (overview, settings, templates) or `variant="fixed"` (sessions, chat, live, MCP log) — every route uses one of these.
+
 ## Pages
 
 | Path | Purpose |

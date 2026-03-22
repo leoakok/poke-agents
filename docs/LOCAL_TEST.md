@@ -12,6 +12,10 @@ Uses a cache under **`~/.local/share/poke-agents/repo`**, runs **`npm install`**
 - **`--yes`** or **`POKE_AGENTS_YES=1`** — non-interactive cache prompts
 - **`POKE_AGENTS_SKIP_WEB=1`** — MCP (+ tunnel) only
 - **`POKE_AGENTS_SKIP_TUNNEL=1`** — no `poke tunnel`
+- **`POKE_AGENTS_NO_OPEN=1`** — do not auto-open the dashboard in a browser (default: opens when the web app is enabled)
+- **`POKE_AGENTS_TUNNEL_NAME`** — label for `poke tunnel … -n` (default **Poke agents**)
+- **`POKE_AGENTS_MCP_SERVER_NAME`** — MCP `initialize` server `name` (default **poke-agents**, or slug of tunnel name if only tunnel name is set)
+- **`npx … --mcp-name "My label"`** — sets tunnel name + server slug (see `npm/poke-agents/README.md`)
 - **`POKE_AGENTS_MCP_PORT`** / **`POKE_AGENTS_WEB_PORT`** — preferred ports (defaults `8740` / `3000`); if busy, the next free port is used unless **`POKE_AGENTS_STRICT_PORTS=1`**
 - **`POKE_AGENTS_STRICT_PORTS=1`** — fail if preferred ports are taken (no auto bump)
 
@@ -29,11 +33,22 @@ npm install
 npm run typecheck
 npm run lint
 npm test
+npm run test:smoke:control   # optional: real agent CLIs (see below)
 npm run build
 npm run start:poke
 ```
 
 Dashboard: [http://127.0.0.1:3000](http://127.0.0.1:3000) · MCP: [http://127.0.0.1:8740/mcp](http://127.0.0.1:8740/mcp)
+
+### Smoke tests
+
+| Command | What it does |
+|--------|----------------|
+| `npm test` | In-process MCP: lists/calls every tool with safe args (no real Cursor/OpenCode/Codex runs). |
+| `npm run test:smoke:control` | **Three** headless runs via `control_agent`: **`POKE_AGENTS_CONTROL`** cycled to `cursor`, `opencode`, and `codex`. Each gets a short “user says hi” style prompt and must return output containing **`POKE_SMOKE_ACK`**. Requires each CLI on `PATH` (or `POKE_AGENTS_CURSOR_AGENT_BIN` / `POKE_AGENTS_OPENCODE_BIN` / `POKE_AGENTS_CODEX_BIN`) and working auth. Default timeout **180s** per run (`POKE_AGENTS_SMOKE_AGENT_TIMEOUT_MS` overrides). |
+| `npm run test:smoke:all` | Runs both rows above in one `node --test` invocation. |
+
+If you only have some CLIs installed, use **`POKE_AGENTS_SMOKE_PARTIAL=1`** with `test:smoke:control` / `test:smoke:all` to **skip** missing backends instead of failing.
 
 ### Web only (dev)
 
@@ -128,7 +143,7 @@ Remove `--build` after the first successful compile if you prefer faster startup
 
 | Variable | Purpose |
 |----------|---------|
-| `POKE_AGENTS_EDITORS` | `cursor,opencode` by default if unset |
+| `POKE_AGENTS_EDITORS` | `cursor,opencode,codex` by default if unset |
 | `POKE_AGENTS_CURSOR_AGENT_BIN` | Path to `agent` if not on `PATH` |
 | `POKE_AGENTS_PORT` | Default HTTP port when using `--http` without a number |
 | `POKE_AGENTS_MCP_PORT` | Used by `start:poke` for MCP (falls back to `POKE_AGENTS_PORT` or `8740`) |

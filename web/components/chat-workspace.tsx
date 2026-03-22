@@ -9,9 +9,12 @@ import {
   ExternalLinkIcon,
 } from "lucide-react";
 
+import { DashboardBody } from "@/components/dashboard-body";
 import { useDashboardData } from "@/components/dashboard-data-context";
 import { SessionChat } from "@/components/session-chat";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSessionDetail, type SessionMessage } from "@/lib/poke-agents-api";
 import { buildLiveResumeIndex } from "@/lib/live-session-match";
@@ -104,10 +107,9 @@ export function ChatWorkspace() {
 
   if (!sessionId) {
     return (
-      <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-hidden py-8">
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain">
+      <DashboardBody variant="fixed" className="gap-4">
         <p className="text-muted-foreground text-sm">
-          No session selected. Pick a chat from the sidebar or{" "}
+          No session selected. Open one from the sidebar or{" "}
           <Link
             href={SESSIONS_HREF}
             className="text-foreground underline-offset-4 hover:underline"
@@ -116,16 +118,15 @@ export function ChatWorkspace() {
           </Link>
           .
         </p>
-        <Link href={SESSIONS_HREF} className={cn(buttonVariants())}>
+        <Link href={SESSIONS_HREF} className={cn(buttonVariants(), "w-fit")}>
           Go to sessions
         </Link>
-        </div>
-      </div>
+      </DashboardBody>
     );
   }
 
   return (
-    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+    <DashboardBody variant="fixed" className="gap-4">
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -149,23 +150,27 @@ export function ChatWorkspace() {
               </span>
             ) : null}
           </div>
-          <h1 className="truncate text-xl font-semibold tracking-tight">
+          <h2 className="truncate text-base font-medium tracking-tight">
             {sessionMeta?.title || "(untitled)"}
-          </h1>
-          <p className="text-muted-foreground font-mono text-[0.65rem] break-all">
+          </h2>
+          <p className="text-muted-foreground font-mono text-[11px] break-all">
             {sessionId}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              className="border-input size-3.5 rounded border accent-primary"
+          <div className="flex items-center gap-2">
+            <Switch
+              id="chat-live-refresh"
               checked={liveTranscriptFollow}
-              onChange={(e) => setLiveTranscriptFollow(e.target.checked)}
+              onCheckedChange={setLiveTranscriptFollow}
             />
-            Live refresh
-          </label>
+            <Label
+              htmlFor="chat-live-refresh"
+              className="text-muted-foreground cursor-pointer text-xs font-normal"
+            >
+              Live refresh
+            </Label>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -202,6 +207,6 @@ export function ChatWorkspace() {
           />
         )}
       </div>
-    </div>
+    </DashboardBody>
   );
 }

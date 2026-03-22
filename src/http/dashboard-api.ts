@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
-import { getAllowedEditorIds } from "../profile.js";
+import { buildConnectorsPayload } from "../connectors/connectors-payload.js";
 import {
-  activeConnectors,
   getMessagesForProfile,
   listSessionsForProfile,
 } from "../connectors/registry.js";
@@ -45,21 +44,11 @@ export function mountDashboardApi(app: Express): void {
 
   app.get("/api/connectors", async (_req: Request, res: Response) => {
     try {
-      const connectors = await Promise.all(
-        activeConnectors().map(async (c) => {
-          const h = await c.health();
-          return {
-            id: c.id,
-            display_name: c.displayName,
-            available: h.available,
-            detail: h.detail,
-          };
-        })
-      );
+      const { connectors, editors } = await buildConnectorsPayload();
       res.json({
         ok: true as const,
         connectors,
-        editors: [...getAllowedEditorIds()],
+        editors,
       });
     } catch (e) {
       res.status(500).json({

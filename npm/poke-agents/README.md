@@ -10,6 +10,25 @@ One command — same pattern as `@leokok/poke-apple-music`:
 npx @leokok/poke-agents@latest
 ```
 
+**MCP only (no Next.js dashboard)** — same as `POKE_AGENTS_SKIP_WEB=1`:
+
+```bash
+npx @leokok/poke-agents@latest --skip-web
+```
+
+**Custom Poke + MCP name** (tunnel `-n` label + MCP server `name` as a slug of that label):
+
+```bash
+npx @leokok/poke-agents@latest --mcp-name "Work laptop"
+# → Poke sees "Work laptop"; MCP initialize name → work-laptop
+```
+
+Combine flags:
+
+```bash
+npx @leokok/poke-agents@latest --skip-web --mcp-name "CI agents"
+```
+
 Non-interactive / fewer prompts:
 
 ```bash
@@ -24,10 +43,15 @@ POKE_AGENTS_YES=1 npx @leokok/poke-agents@latest
 |----------|---------|
 | `POKE_AGENTS_REPO` | Git URL (default: `https://github.com/leoakok/poke-agents.git`) |
 | `POKE_AGENTS_YES` / `--yes` | Skip destructive cache prompts |
+| `--skip-web` | Sets `POKE_AGENTS_SKIP_WEB=1` — start **MCP HTTP** (and tunnel unless skipped), **no** dashboard |
+| `--mcp-name "…"` | Sets `POKE_AGENTS_TUNNEL_NAME` and `POKE_AGENTS_MCP_SERVER_NAME` (slug) for Poke + MCP clients |
+| `POKE_AGENTS_TUNNEL_NAME` | Poke tunnel display label (`-n`); default **Poke agents** |
+| `POKE_AGENTS_MCP_SERVER_NAME` | MCP protocol server `name`; default **poke-agents**, or slug of tunnel name if only tunnel name is set |
 | `POKE_AGENTS_MCP_PORT` | MCP + dashboard API port (default `8740`) |
 | `POKE_AGENTS_WEB_PORT` | Next.js port (default `3000`) |
 | `POKE_AGENTS_SKIP_WEB` | `1` = MCP (+ tunnel) only, no dashboard |
 | `POKE_AGENTS_SKIP_TUNNEL` | `1` = local only, no `poke tunnel` |
+| `POKE_AGENTS_NO_OPEN` | `1` = do not open the default browser when the dashboard starts |
 | `POKE_AGENTS_STRICT_PORTS` | `1` = do **not** auto-pick another port if the preferred MCP/dashboard port is busy (exit with error instead) |
 
 ## Developing from a checkout

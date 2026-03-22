@@ -3,6 +3,11 @@ import type { SessionRow } from "@/lib/poke-agents-api";
 const UUID_ONE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** OpenCode native session id (`ses_…`) stored as `composerId` on disk rows. */
+const OPENCODE_SES = /^ses_[a-z0-9][a-z0-9_]*$/i;
+
+const SES_TOKEN_GLOBAL = /\bses_[a-z0-9][a-z0-9_]*\b/gi;
+
 const UUID_GLOBAL =
   /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
 
@@ -36,7 +41,10 @@ function base64UrlToUtf8(b64url: string): string {
   }
 }
 
-/** Read `composerId` from opaque `sessions[].id` (`source:base64url`). */
+/**
+ * Read `composerId` from opaque `sessions[].id` (`source:base64url`).
+ * Cursor: uuid. OpenCode: `ses_…`. Codex: often uuid in metadata.
+ */
 export function composerIdFromSessionId(sessionId: string): string | null {
   const idx = sessionId.indexOf(":");
   if (idx <= 0) return null;
@@ -47,10 +55,29 @@ export function composerIdFromSessionId(sessionId: string): string | null {
   try {
     const o = JSON.parse(json) as Record<string, unknown>;
     const c = o.composerId;
-    return typeof c === "string" && UUID_ONE.test(c) ? c.toLowerCase() : null;
+    if (typeof c !== "string") return null;
+    const t = c.trim();
+    if (UUID_ONE.test(t)) return t.toLowerCase();
+    if (OPENCODE_SES.test(t)) return t.toLowerCase();
+    return null;
   } catch {
     return null;
   }
+}
+
+/** Tokens that can link a live `opencode run` line to a saved OpenCode session. */
+export function extractOpenCodeSessionTokensFromCommand(
+  command: string,
+): string[] {
+  const out = new Set<string>();
+  for (const m of command.match(SES_TOKEN_GLOBAL) ?? []) {
+    out.add(m.toLowerCase());
+  }
+  const sess = command.match(/--session(?:=|\s+)(\S+)/i);
+  if (sess?.[1]?.toLowerCase().startsWith("ses_")) {
+    out.add(sess[1].toLowerCase());
+  }
+  return [...out];
 }
 
 export function sessionIdsMatchingResumeUuid(
@@ -84,6 +111,18 @@ export function buildLiveResumeIndex(
   for (const u of extractAllUuidsFromCommand(command)) {
     for (const id of sessionIdsMatchingResumeUuid(sessions, u)) {
       matching.add(id);
+    }
+  }
+  for (const ses of extractOpenCodeSessionTokensFromCommand(command)) {
+    for (const s of sessions) {
+      const cid = composerIdFromSessionId(s.id);
+      if (cid === ses) {
+        matching.add(s.id);
+        continue;
+      }
+      if (s.id.toLowerCase().includes(ses)) {
+        matching.add(s.id);
+      }
     }
   }
   return { resume, matchingSessionIds: [...matching] };

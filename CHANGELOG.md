@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/leoakok/poke-agents/compare/v1.1.0...v1.2.0) (2026-03-22)
+
+
+### Features
+
+* dashboard layout, MCP identity, control CLI smoke tests ([1a4a0cd](https://github.com/leoakok/poke-agents/commit/1a4a0cd50694898f516d2b52f3e515e778cc2bf4))
+
 # [1.1.0](https://github.com/leoakok/poke-agents/compare/v1.0.0...v1.1.0) (2026-03-21)
 
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 
+import { DashboardBody } from "@/components/dashboard-body";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,8 +153,8 @@ export function AgentTemplatesPanel() {
   };
 
   return (
-    <section id="agent-templates" className="scroll-mt-24">
-      <Card>
+    <DashboardBody variant="scroll">
+      <Card id="agent-templates">
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div className="space-y-1">
             <CardTitle className="text-base">Agent templates</CardTitle>
@@ -368,6 +369,6 @@ export function AgentTemplatesPanel() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </section>
+    </DashboardBody>
   );
 }

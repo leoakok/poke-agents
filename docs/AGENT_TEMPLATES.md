@@ -14,6 +14,8 @@ Optional MCP field: set **`agent_template`** to a template **`id`** from **`agen
 
 Successful responses echo **`agent_template`** and **`agent_template_title`** when a template was applied. Unknown ids fail fast with `failed_to_start` and an error message.
 
+**Cursor + templates that run shell or automate aggressively:** a preamble alone does not execute commands. Use **`control_agent`** with **`force: true`** when the combined prompt should **actually run** terminal commands; **`trust`** (default) only marks the workspace trusted. See **`docs/MCP_TOOLS.md`** → `control_agent` for the full flag matrix.
+
 ## Dashboard (`/templates`)
 
 - **New template** — new `id` on disk.

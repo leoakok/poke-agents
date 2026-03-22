@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ActivityIcon, MessageSquareIcon } from "lucide-react";
 
+import { DashboardBody } from "@/components/dashboard-body";
 import { useDashboardData } from "@/components/dashboard-data-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,14 +19,30 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildLiveResumeIndex } from "@/lib/live-session-match";
 import { chatHref } from "@/lib/routes";
-import { stopAgentProcess } from "@/lib/poke-agents-api";
+import {
+  stopAgentProcess,
+  type AgentProcessRow,
+} from "@/lib/poke-agents-api";
 import { cn } from "@/lib/utils";
 
 function truncateCmd(cmd: string, max = 140) {
   return cmd.length <= max ? cmd : `${cmd.slice(0, max)}…`;
 }
 
-export function LiveProcessesPanel() {
+function cliFamilyLabel(cli: AgentProcessRow["cli"]): string | null {
+  switch (cli) {
+    case "cursor-agent":
+      return "Cursor";
+    case "opencode":
+      return "OpenCode";
+    case "codex":
+      return "Codex";
+    default:
+      return null;
+  }
+}
+
+export function LiveProcessesPanel({ className }: { className?: string }) {
   const router = useRouter();
   const { sessions, liveRuntime, liveSse, refreshLiveSnapshot } =
     useDashboardData();
@@ -64,8 +81,14 @@ export function LiveProcessesPanel() {
   );
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <DashboardBody variant="fixed">
+    <Card
+      className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        className,
+      )}
+    >
+      <CardHeader className="shrink-0 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ActivityIcon
@@ -89,18 +112,17 @@ export function LiveProcessesPanel() {
           </Button>
         </div>
         <CardDescription>
-          Updates about every 2s (SSE). <strong>Stop</strong> sends{" "}
-          <code className="font-mono text-xs">SIGINT</code> to the PID. Matches
-          are linked to{" "}
+          SSE ~2s. <strong>Stop</strong> → <code className="font-mono text-xs">SIGINT</code>.
+          Rows include Cursor <code className="font-mono text-xs">agent</code>, OpenCode{" "}
+          <code className="font-mono text-xs">opencode run</code>, Codex{" "}
+          <code className="font-mono text-xs">codex exec</code>. Match to{" "}
           <Link href="/sessions" className="text-foreground underline-offset-4 hover:underline">
             Sessions
           </Link>{" "}
-          when the command UUID matches a saved{" "}
-          <code className="font-mono text-xs">composerId</code>. IDE-embedded
-          agents usually do not appear here.
+          via resume uuid or OpenCode <code className="font-mono text-xs">ses_…</code>.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain">
         {stopError ? (
           <p className="text-destructive text-sm">{stopError}</p>
         ) : null}
@@ -130,6 +152,7 @@ export function LiveProcessesPanel() {
             <div className="rounded-lg border">
               <div className="flex flex-col gap-2 p-2">
                 {liveRuntime.processes.map((p) => {
+                  const cliLbl = cliFamilyLabel(p.cli);
                   const isSel = selectedLivePid === p.pid;
                   const { resume, matchingSessionIds } = buildLiveResumeIndex(
                     sessions,
@@ -175,6 +198,11 @@ export function LiveProcessesPanel() {
                           <span className="text-muted-foreground font-mono text-xs">
                             ppid {p.ppid}
                           </span>
+                          {cliLbl ? (
+                            <Badge variant="outline" className="text-[0.65rem]">
+                              {cliLbl}
+                            </Badge>
+                          ) : null}
                           <Badge variant="secondary" className="text-xs">
                             {p.mode}
                           </Badge>
@@ -285,5 +313,6 @@ export function LiveProcessesPanel() {
         ) : null}
       </CardContent>
     </Card>
+    </DashboardBody>
   );
 }

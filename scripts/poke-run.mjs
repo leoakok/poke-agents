@@ -16,6 +16,10 @@ const webDir = join(root, "web");
 
 const skipWeb = process.env.POKE_AGENTS_SKIP_WEB === "1";
 const skipTunnel = process.env.POKE_AGENTS_SKIP_TUNNEL === "1";
+
+/** Human-readable label for Poke when using `poke tunnel … -n` (default: "Poke agents"). */
+const pokeTunnelDisplayName =
+  process.env.POKE_AGENTS_TUNNEL_NAME?.trim() || "Poke agents";
 const strictPorts = process.env.POKE_AGENTS_STRICT_PORTS === "1";
 
 const tty = process.stderr.isTTY && !process.env.NO_COLOR;
@@ -59,11 +63,16 @@ function labelPad(label, width) {
   return label.length >= width ? label : label + " ".repeat(width - label.length);
 }
 
-function printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb_) {
+function printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb_, skipTunnel_) {
   const w = 12;
   line("");
   line(`  ${c.bold("Services")}`);
   line(`  ${c.dim(labelPad("MCP", w))}  ${c.cyan(mcpUrl)}`);
+  if (!skipTunnel_) {
+    line(
+      `  ${c.dim(labelPad("Poke name", w))}  ${c.dim(pokeTunnelDisplayName)}`,
+    );
+  }
   if (!skipWeb_) {
     line(
       `  ${c.dim(labelPad("Dashboard", w))}  ${c.cyan(`http://${mcpHost}:${webPort}`)}`,
@@ -122,6 +131,30 @@ async function allocatePort(host, preferred, label) {
     return preferred;
   }
   return findFreePort(host, preferred, 80);
+}
+
+/**
+ * Opens the OS default browser. Skipped when `POKE_AGENTS_NO_OPEN=1` (SSH, CI).
+ */
+function openDefaultBrowser(url) {
+  if (process.env.POKE_AGENTS_NO_OPEN === "1") return;
+  const detached = { detached: true, stdio: "ignore" };
+  try {
+    let child;
+    if (process.platform === "darwin") {
+      child = spawn("open", [url], detached);
+    } else if (process.platform === "win32") {
+      child = spawn("cmd", ["/c", "start", "", url], {
+        ...detached,
+        windowsHide: true,
+      });
+    } else {
+      child = spawn("xdg-open", [url], detached);
+    }
+    child.unref();
+  } catch {
+    // headless Linux or missing xdg-open — URL is still printed below
+  }
 }
 
 function waitForPort(port, host, timeoutMs) {
@@ -206,7 +239,7 @@ async function main() {
 
   const mcpOrigin = `http://${mcpHost}:${mcpPort}`;
   const mcpUrl = `${mcpOrigin}/mcp`;
-  printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb);
+  printServiceBlock(mcpUrl, webPort, mcpHost, skipWeb, skipTunnel);
 
   const mcp = spawn(
     process.execPath,
@@ -291,6 +324,13 @@ async function main() {
       killAll();
       process.exit(1);
     }
+    const dashboardUrl = `http://${mcpHost}:${webPort}/`;
+    openDefaultBrowser(dashboardUrl);
+    if (process.env.POKE_AGENTS_NO_OPEN === "1") {
+      step(c.dim(`Dashboard ready — ${dashboardUrl} (browser open skipped)`));
+    } else {
+      step(c.green(`Opening dashboard — ${dashboardUrl}`));
+    }
   }
 
   if (!skipTunnel) {
@@ -298,7 +338,14 @@ async function main() {
     line("");
     const tunnel = spawn(
       "npx",
-      ["--yes", "poke@latest", "tunnel", mcpUrl, "-n", "Poke agents"],
+      [
+        "--yes",
+        "poke@latest",
+        "tunnel",
+        mcpUrl,
+        "-n",
+        pokeTunnelDisplayName,
+      ],
       { stdio: "inherit", env: process.env },
     );
     children.push(tunnel);

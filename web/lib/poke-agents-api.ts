@@ -26,6 +26,8 @@ export type ConnectorRow = {
   display_name: string;
   available: boolean;
   detail?: string;
+  /** False when this id is not in `POKE_AGENTS_EDITORS` on the MCP host (dashboard still lists it). */
+  server_enabled?: boolean;
 };
 
 export type ConnectorsResponse =
@@ -70,6 +72,8 @@ export type AgentProcessRow = {
   elapsed: string;
   command: string;
   mode: "headless" | "interactive" | "other";
+  /** Present from server ≥0.2 — Cursor `agent`, OpenCode `run`, or Codex `exec`. */
+  cli?: "cursor-agent" | "opencode" | "codex" | "other";
 };
 
 export type AgentRuntimeResponse =

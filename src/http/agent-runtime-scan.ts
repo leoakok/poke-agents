@@ -3,12 +3,16 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+export type AgentCliFamily = "cursor-agent" | "opencode" | "codex" | "other";
+
 export type AgentProcessInfo = {
   pid: number;
   ppid: number;
   elapsed: string;
   command: string;
   mode: "headless" | "interactive" | "other";
+  /** Which coding-agent CLI family this command line looks like (best-effort). */
+  cli: AgentCliFamily;
 };
 
 export type AgentRuntimeSnapshot =
@@ -37,8 +41,22 @@ function parsePsLine(line: string): {
   return { pid, ppid, elapsed: m[3], command: m[4] };
 }
 
+function classifyCliFamily(cmd: string): AgentCliFamily {
+  const c = cmd.toLowerCase();
+  if (/\bopencode\s+run\b/.test(c)) return "opencode";
+  if (/\bcodex\s+exec\b/.test(c)) return "codex";
+  if (/\sagent\s/.test(c) || /[/\\]agent(\s|$)/.test(c)) return "cursor-agent";
+  if (/cursor-agent[/\\]versions[/\\]/i.test(cmd)) return "cursor-agent";
+  if (/\/\.local\/bin\/agent\b/.test(cmd) || /\/\.local\/bin\/cursor-agent\b/.test(cmd)) {
+    return "cursor-agent";
+  }
+  return "other";
+}
+
 function classifyCommand(cmd: string): AgentProcessInfo["mode"] {
   const c = cmd;
+  if (/\bopencode\s+run\b/i.test(c)) return "headless";
+  if (/\bcodex\s+exec\b/i.test(c)) return "headless";
   if (/\s-p\b/.test(c) || /--print\b/.test(c)) return "headless";
   if (/\sagent\s/.test(c) || /[/\\]agent(\s|$)/.test(c)) {
     if (/\s(-p|--print)\b/.test(c)) return "headless";
@@ -61,6 +79,12 @@ function shouldIncludeProcess(cmd: string): boolean {
   // Ephemeral CLI probes (not a long-running “agent task”)
   if (/\sstatus(\s|$)/i.test(cmd) && !/\s-p\b/.test(cmd)) return false;
   if (/\sabout(\s|$)/i.test(cmd) && !/\s-p\b/.test(cmd)) return false;
+
+  // OpenCode headless: `opencode run …`
+  if (/\bopencode\s+run\b/i.test(cmd)) return true;
+
+  // Codex headless: `codex exec …` (including `codex exec resume …`)
+  if (/\bcodex\s+exec\b/i.test(cmd)) return true;
 
   // Packaged Cursor Agent CLI (Node entry under cursor-agent/versions)
   if (/cursor-agent[/\\]versions[/\\]/i.test(cmd) && /\.(js|mjs|cjs)(\s|$)/i.test(cmd)) {
@@ -98,8 +122,8 @@ async function runPs(): Promise<string> {
 }
 
 /**
- * Best-effort list of local Cursor `agent` CLI processes (headless `-p`, create-chat, etc.).
- * Does not see Agent UI embedded inside the Cursor app unless it spawns a separate `agent` process.
+ * Best-effort list of local coding-agent CLI processes: Cursor **`agent`**, OpenCode **`opencode run`**, Codex **`codex exec`**.
+ * Does not see in-IDE-only UIs unless they spawn a separate CLI child.
  */
 export async function scanAgentProcesses(): Promise<AgentRuntimeSnapshot> {
   const scanned_at = new Date().toISOString();
@@ -126,6 +150,7 @@ export async function scanAgentProcesses(): Promise<AgentRuntimeSnapshot> {
         elapsed: row.elapsed,
         command: row.command,
         mode: classifyCommand(row.command),
+        cli: classifyCliFamily(row.command),
       });
     }
     processes.sort((a, b) => a.pid - b.pid);

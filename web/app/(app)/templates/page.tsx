@@ -1,11 +1,17 @@
+import type { Metadata } from "next";
+
+import { AppPage } from "@/components/app-page";
 import { AgentTemplatesPanel } from "@/components/agent-templates-panel";
+
+export const metadata: Metadata = {
+  title: "Templates",
+  description: "Agent persona templates — built-ins and custom JSON on disk.",
+};
 
 export default function TemplatesPage() {
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <AgentTemplatesPanel />
-      </div>
-    </div>
+    <AppPage>
+      <AgentTemplatesPanel />
+    </AppPage>
   );
 }

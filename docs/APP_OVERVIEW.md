@@ -105,6 +105,8 @@ Launch options:
 
 - `POKE_AGENTS_SKIP_WEB=1` -> run MCP/API without dashboard
 - `POKE_AGENTS_SKIP_TUNNEL=1` -> skip Poke tunnel
+- `POKE_AGENTS_TUNNEL_NAME` / `POKE_AGENTS_MCP_SERVER_NAME` -> Poke tunnel `-n` label and MCP server `name` (or `npx … --mcp-name "…"`)
+- `POKE_AGENTS_NO_OPEN=1` -> do not auto-open the dashboard in a browser when the web app starts
 - `POKE_AGENTS_STRICT_PORTS=1` -> fail if preferred ports are busy
 
 Default ports:

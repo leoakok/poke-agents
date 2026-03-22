@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/leoakok/poke-agents/compare/v1.2.0...v1.2.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **launcher:** run build:mcp only when --skip-web ([358714c](https://github.com/leoakok/poke-agents/commit/358714c90cc4582f81c94c7b66b7b618a2a7af37))
+
 # [1.2.0](https://github.com/leoakok/poke-agents/compare/v1.1.0...v1.2.0) (2026-03-22)
 
 

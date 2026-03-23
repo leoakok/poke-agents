@@ -10,6 +10,7 @@ import {
   wrapExpressResponseForMcpLogging,
 } from "../http/mcp-traffic-hub.js";
 import { runWithMcpRequestContext } from "../control/mcp-request-context.js";
+import { checkNpmLatestVersion } from "../version/npm-latest.js";
 
 function parseArgs(argv: string[]): { mode: "stdio" | "http"; port: number } {
   const httpIdx = argv.indexOf("--http");
@@ -25,6 +26,19 @@ function parseArgs(argv: string[]): { mode: "stdio" | "http"; port: number } {
 
 async function main(): Promise<void> {
   const { mode, port } = parseArgs(process.argv.slice(2));
+
+  // Startup notice (stderr): tells users how to get full performance.
+  // Kept short and cached; failures are non-fatal (offline / no network).
+  try {
+    const r = await checkNpmLatestVersion({ timeoutMs: 1500 });
+    if ("ok" in r && r.ok && r.needsUpdate) {
+      console.error(
+        `poke-agents npm update available: ${r.current} → ${r.latest}. Run: npx @leokok/poke-agents@latest`,
+      );
+    }
+  } catch {
+    // ignore
+  }
 
   if (mode === "stdio") {
     const mcp = createPokeAgentsMcpServer();

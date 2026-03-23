@@ -7,6 +7,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { navMetaForPath } from "@/lib/dashboard-nav";
 import { POKE_AGENTS_REPO_URL } from "@/lib/repo";
 import { cn } from "@/lib/utils";
+import { NpmVersionNotice } from "@/components/npm-version-notice";
 
 export function DashboardInsetHeader() {
   const pathname = usePathname();
@@ -29,6 +30,7 @@ export function DashboardInsetHeader() {
             {meta.description}
           </p>
         </div>
+        <NpmVersionNotice />
       </div>
       <a
         href={POKE_AGENTS_REPO_URL}

@@ -4,7 +4,7 @@
  *   npx @leokok/poke-agents
  *
  * Delegates to the canonical package:
- *   npx poke-agents@latest
+ *   npm exec --yes poke-agents@latest
  */
 import { spawnSync } from "node:child_process";
 
@@ -14,10 +14,12 @@ console.error(
   "[poke-agents] `@leokok/poke-agents` is now a compatibility shim. Redirecting to `npx poke-agents@latest`...\n[poke-agents] Tip: you can run `npx poke-agents` directly next time.",
 );
 
-const npmCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+// `npm exec` is more reliable than recursively spawning `npx`,
+// especially on Windows/PowerShell where `spawnSync npx.cmd` can throw EINVAL.
+const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 const r = spawnSync(
   npmCmd,
-  ["-y", "poke-agents@latest", ...rawArgs],
+  ["exec", "--yes", "poke-agents@latest", "--", ...rawArgs],
   {
     stdio: "inherit",
     env: process.env,

@@ -18,7 +18,8 @@
     "mcp",
     "cursor",
     "agents",
-    "nextjs"
+    "nextjs",
+    "poke-browser"
   ],
   "license": "MIT",
   "homepage": "https://github.com/leoakok/poke-agents#readme",
@@ -31,5 +32,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "poke": "^0.4.2"
   }
 }

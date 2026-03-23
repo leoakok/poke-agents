@@ -36,7 +36,8 @@
     "poke",
     "mcp",
     "cursor",
-    "agents"
+    "agents",
+    "poke-browser"
   ],
   "license": "MIT",
   "repository": {
@@ -65,6 +66,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "better-sqlite3": "^12.6.2",
+    "poke": "^0.4.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

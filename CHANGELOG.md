@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/leoakok/poke-agents/compare/v1.3.0...v1.4.0) (2026-03-23)
+
+
+### Features
+
+* **ui/cli:** notify npm latest updates ([8013b4e](https://github.com/leoakok/poke-agents/commit/8013b4eff90ad163c837bf13e0fe4eb19c408844))
+
 # [1.3.0](https://github.com/leoakok/poke-agents/compare/v1.2.2...v1.3.0) (2026-03-22)
 
 

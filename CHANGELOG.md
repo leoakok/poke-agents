@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/leoakok/poke-agents/compare/v1.4.0...v1.5.0) (2026-03-23)
+
+
+### Features
+
+* **release:** rename launcher package to poke-agents ([031d774](https://github.com/leoakok/poke-agents/commit/031d77473113414e75e6f23d3de60603a8326e7c))
+
 # [1.4.0](https://github.com/leoakok/poke-agents/compare/v1.3.0...v1.4.0) (2026-03-23)
 
 

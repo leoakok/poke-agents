@@ -1,6 +1,6 @@
 {
   "name": "poke-agents",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Clone poke-agents, install, build, run MCP + dashboard + Poke tunnel",
   "type": "module",
   "bin": {

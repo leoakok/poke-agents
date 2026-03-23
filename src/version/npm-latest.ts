@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 
 // The npm launcher package people run via:
-//   npx @leokok/poke-agents@latest
-const PACKAGE_NAME = "@leokok/poke-agents";
+//   npx poke-agents@latest
+const PACKAGE_NAME = "poke-agents";
 // For scoped packages, the registry expects the scope as its own path segment,
 // e.g. `/@scope/name/latest` (so do *not* encode the `/` separator).
 const NPM_LATEST_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;

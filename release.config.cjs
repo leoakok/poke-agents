@@ -1,5 +1,5 @@
 /**
- * semantic-release: publish launcher @leokok/poke-agents from npm/poke-agents/
+ * semantic-release: publish launcher poke-agents from npm/poke-agents/
  * Runs only on push to main (see .github/workflows/ci-release.yml).
  */
 module.exports = {

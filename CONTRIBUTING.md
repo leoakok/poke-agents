@@ -16,7 +16,7 @@ npm run build
 
 ## Commits and releases (Conventional Commits)
 
-Releases of **`@leokok/poke-agents`** on npm are automated from **`main`** via [semantic-release](https://semantic-release.gitbook.io/) when CI passes. Use [Conventional Commits](https://www.conventionalcommits.org/) so versions are computed correctly:
+Releases of **`poke-agents`** on npm are automated from **`main`** via [semantic-release](https://semantic-release.gitbook.io/) when CI passes. Use [Conventional Commits](https://www.conventionalcommits.org/) so versions are computed correctly:
 
 | Commit type | Semver bump |
 |-------------|-------------|

@@ -71,7 +71,7 @@ Terminal B — tunnel (adjust flag spelling to your Poke CLI):
 ```bash
 poke tunnel http://127.0.0.1:8740/mcp -n "Poke agents"
 
-When using **`npm run start:poke`** / **`npx @leokok/poke-agents`**, set **`POKE_AGENTS_TUNNEL_NAME`** or **`--mcp-name "…"`** so the tunnel uses your label (see `npm/poke-agents/README.md`).
+When using **`npm run start:poke`** / **`npx poke-agents`**, set **`POKE_AGENTS_TUNNEL_NAME`** or **`--mcp-name "…"`** so the tunnel uses your label (see `npm/poke-agents/README.md`).
 ```
 
 Use the same `POKE_AGENTS_EDITORS` in the environment if you start the HTTP process manually.

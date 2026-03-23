@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @leokok/poke-agents — clone / update repo, npm install + build, then MCP + Next + tunnel.
+ * poke-agents — clone / update repo, npm install + build, then MCP + Next + tunnel.
  * Terminal UX matches @leokok/poke-apple-music (banner, star CTA, spacing).
  */
 import { spawn, spawnSync } from "node:child_process";

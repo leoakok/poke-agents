@@ -1,4 +1,4 @@
-# `@leokok/poke-agents` (npm launcher)
+# `poke-agents` (npm launcher)
 
 One command — same pattern as `@leokok/poke-apple-music`:
 
@@ -7,34 +7,34 @@ One command — same pattern as `@leokok/poke-apple-music`:
 3. Starts **MCP HTTP**, **Next.js UI**, and **`poke tunnel`** to register the MCP with Poke
 
 ```bash
-npx @leokok/poke-agents@latest
+npx poke-agents@latest
 ```
 
 **MCP only (no Next.js dashboard)** — same as `POKE_AGENTS_SKIP_WEB=1`:
 
 ```bash
-npx @leokok/poke-agents@latest --skip-web
+npx poke-agents@latest --skip-web
 ```
 
 **Custom Poke + MCP name** (tunnel `-n` label + MCP server `name` as a slug of that label):
 
 ```bash
-npx @leokok/poke-agents@latest --mcp-name "Work laptop"
+npx poke-agents@latest --mcp-name "Work laptop"
 # → Poke sees "Work laptop"; MCP initialize name → work-laptop
 ```
 
 Combine flags:
 
 ```bash
-npx @leokok/poke-agents@latest --skip-web --mcp-name "CI agents"
+npx poke-agents@latest --skip-web --mcp-name "CI agents"
 ```
 
 Non-interactive / fewer prompts:
 
 ```bash
-npx @leokok/poke-agents@latest --yes
+npx poke-agents@latest --yes
 # or
-POKE_AGENTS_YES=1 npx @leokok/poke-agents@latest
+POKE_AGENTS_YES=1 npx poke-agents@latest
 ```
 
 ## Environment
@@ -68,4 +68,4 @@ Full source: [github.com/leoakok/poke-agents](https://github.com/leoakok/poke-ag
 
 ## Releases and versioning
 
-The **`@leokok/poke-agents`** version on npm is released from the **`main`** branch in that repo: CI runs on every branch/PR; **semantic-release** bumps this package’s `version`, tags, and publishes **only** when changes land on **`main`** (see repo root `release.config.cjs` and `docs/GITHUB_READINESS.md`). Commit messages should follow **Conventional Commits** (`fix:`, `feat:`, etc.) so semver is correct.
+The **`poke-agents`** version on npm is released from the **`main`** branch in that repo: CI runs on every branch/PR; **semantic-release** bumps this package’s `version`, tags, and publishes **only** when changes land on **`main`** (see repo root `release.config.cjs` and `docs/GITHUB_READINESS.md`). Commit messages should follow **Conventional Commits** (`fix:`, `feat:`, etc.) so semver is correct.

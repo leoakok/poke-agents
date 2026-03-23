@@ -16,7 +16,7 @@ Use this when making the repo public or handing off maintenance. Check boxes as 
 
 ## Secrets and automation
 
-- [ ] **`NPM_TOKEN`** — [npm token](https://www.npmjs.com/settings/~/tokens) with **publish** access to **`@leokok/poke-agents`**, stored as a GitHub Actions **secret** (no extra spaces/newlines). Prefer a **granular** token scoped to that package, or a classic **Automation** token. If you use 2FA on npm, use token type / settings compatible with CI ([npm 2FA + automation](https://docs.npmjs.com/about-two-factor-authentication)); “Authorization and writes” classic tokens often break `npm publish` in CI.
+- [ ] **`NPM_TOKEN`** — [npm token](https://www.npmjs.com/settings/~/tokens) with **publish** access to **`poke-agents`**, stored as a GitHub Actions **secret** (no extra spaces/newlines). Prefer a **granular** token scoped to that package, or a classic **Automation** token. If you use 2FA on npm, use token type / settings compatible with CI ([npm 2FA + automation](https://docs.npmjs.com/about-two-factor-authentication)); “Authorization and writes” classic tokens often break `npm publish` in CI.
 - [ ] **`GITHUB_TOKEN`** — default; release workflow uses **`contents: write`** for tags/releases and semantic-release’s version commit (no extra secret unless branch rules block the bot; then use a PAT).
 
 ## CI vs CD (what runs when)
@@ -44,7 +44,7 @@ Use this when making the repo public or handing off maintenance. Check boxes as 
 
 ## First-time semantic-release / npm alignment
 
-If **`@leokok/poke-agents`** on npm is already ahead of git tags, add a matching **`vX.Y.Z`** tag on `main` before relying on automated releases so semantic-release does not re-publish or mis-version. After that, routine releases need **no manual** version edits in `npm/poke-agents/package.json`.
+If **`poke-agents`** on npm is already ahead of git tags, add a matching **`vX.Y.Z`** tag on `main` before relying on automated releases so semantic-release does not re-publish or mis-version. After that, routine releases need **no manual** version edits in `npm/poke-agents/package.json`.
 
 ## GitHub templates & local commit hooks
 

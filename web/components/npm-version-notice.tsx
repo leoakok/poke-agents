@@ -36,7 +36,7 @@ export function NpmVersionNotice() {
 
   return (
     <a
-      href="https://www.npmjs.com/package/@leokok/poke-agents"
+      href="https://www.npmjs.com/package/poke-agents"
       target="_blank"
       rel="noreferrer"
       className="text-muted-foreground hover:bg-muted/60 hover:text-foreground flex shrink-0 items-center rounded-md px-2 py-1.5 text-[0.65rem] border border-border bg-muted/40"

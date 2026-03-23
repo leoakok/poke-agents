@@ -1,4 +1,4 @@
-# Publishing `@leokok/poke-agents`
+# Publishing `poke-agents`
 
 The **npm package** is only the thin launcher in **`npm/poke-agents/`** (like `poke-apple-music-mcp/npm/poke-apple-music/`). The rest of this repo is the implementation that gets cloned into `~/.local/share/poke-agents/repo`.
 
@@ -11,7 +11,7 @@ On every **`push` to `main`** after **CI** passes, [semantic-release](https://se
 3. Runs **`npm publish`** from **`npm/poke-agents/`**.
 
 Workflow: [`.github/workflows/ci-release.yml`](../.github/workflows/ci-release.yml).  
-Secret: **`NPM_TOKEN`** (publish scope for **`@leokok/poke-agents`**).  
+Secret: **`NPM_TOKEN`** (publish scope for **`poke-agents`**).
 Details: [`GITHUB_READINESS.md`](GITHUB_READINESS.md), [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Manual (emergency only)

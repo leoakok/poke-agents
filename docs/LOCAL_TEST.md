@@ -3,7 +3,7 @@
 ## One command (npm — same pattern as Apple Music)
 
 ```bash
-npx @leokok/poke-agents@latest
+npx poke-agents@latest
 ```
 
 Uses a cache under **`~/.local/share/poke-agents/repo`**, runs **`npm install`**, **`npm run build`**, then **`npm run start:poke`** (MCP HTTP + Next dashboard + `poke tunnel`).
@@ -105,7 +105,7 @@ Uses the official MCP **in-memory transport** + `Client` to call every registere
 
 Tool names are asserted in `src/smoke/mcp-tools-smoke.test.ts` (`EXPECTED_MCP_TOOL_NAMES`).
 
-CI runs the same gates on **every PR and branch**; **`npm publish`** for `@leokok/poke-agents` runs only on **`main`** (see [`.github/workflows/ci-release.yml`](../.github/workflows/ci-release.yml)).
+CI runs the same gates on **every PR and branch**; **`npm publish`** for `poke-agents` runs only on **`main`** (see [`.github/workflows/ci-release.yml`](../.github/workflows/ci-release.yml)).
 
 ## Quick sanity check
 

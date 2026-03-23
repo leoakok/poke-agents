@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     const r = await checkNpmLatestVersion({ timeoutMs: 1500 });
     if ("ok" in r && r.ok && r.needsUpdate) {
       console.error(
-        `poke-agents npm update available: ${r.current} → ${r.latest}. Run: npx @leokok/poke-agents@latest`,
+        `poke-agents npm update available: ${r.current} → ${r.latest}. Run: npx poke-agents@latest`,
       );
     }
   } catch {

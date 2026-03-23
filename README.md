@@ -7,7 +7,7 @@
 Same idea as **`@leokok/poke-apple-music`**: clone/update a cache, install, build, then run **MCP HTTP + dashboard + `poke tunnel`**.
 
 ```bash
-npx @leokok/poke-agents@latest
+npx poke-agents@latest
 ```
 
 Flags / env: **`--yes`**, **`--skip-web`** (MCP only, no dashboard; launcher runs **`npm run build:mcp`** so Next/Turbopack is not built), **`--mcp-name "…"`** (Poke tunnel label + MCP server id), **`POKE_AGENTS_NO_OPEN=1`** (no browser when dashboard runs), **`POKE_AGENTS_YES=1`**, **`POKE_AGENTS_REPO`**, **`POKE_AGENTS_SKIP_WEB`**, **`POKE_AGENTS_SKIP_TUNNEL`**, **`POKE_AGENTS_TUNNEL_NAME`**, **`POKE_AGENTS_MCP_SERVER_NAME`** — see [`npm/poke-agents/README.md`](npm/poke-agents/README.md).
@@ -58,7 +58,7 @@ Third-party **editor adapter** JavaScript lives in [`vendor/session-editors/`](v
 |------|------|
 | `web/` | Next.js + shadcn dashboard (npm workspace) |
 | `scripts/poke-run.mjs` | Starts MCP + Next + optional `poke tunnel` |
-| `npm/poke-agents/` | Thin **`@leokok/poke-agents`** package (publish to npm) |
+| `npm/poke-agents/` | Thin **`poke-agents`** package (publish to npm) |
 | `vendor/session-editors/` | Vendored CommonJS editor readers (`package.json` sets `"type": "commonjs"`) |
 | `src/connectors/registry.ts` | `allConnectors`, merged sessions, messages |
 | `NOTICE` | Third-party copyright and ISC license text |

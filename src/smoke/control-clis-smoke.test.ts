@@ -24,7 +24,7 @@ import { spawnSync } from "node:child_process";
 import { after, before, describe, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { claudeSpawnCheck } from "../control/claude-cli.js";
+import { claudeBin, claudeSpawnCheck } from "../control/claude-cli.js";
 import { codexSpawnCheck } from "../control/codex-cli.js";
 import { cursorAgentBin } from "../control/cursor-agent.js";
 import { opencodeSpawnCheck } from "../control/opencode-cli.js";
@@ -81,6 +81,34 @@ function cursorSpawnCheck(cwd: string): { ok: true } | { ok: false; error: strin
     return { ok: false, error: r.error.message };
   }
   return { ok: true };
+}
+
+function claudeAuthLoggedIn(cwd: string): { ok: true; loggedIn: boolean } | { ok: false; error: string } {
+  const bin = claudeBin();
+  const r = spawnSync(bin, ["auth", "status"], {
+    cwd,
+    encoding: "utf8",
+    timeout: 60_000,
+    env: {
+      ...process.env,
+      CI: "1",
+      NO_COLOR: "1",
+      FORCE_COLOR: "0",
+    },
+  });
+  if (r.error) {
+    return { ok: false, error: r.error.message };
+  }
+  const out = String(r.stdout ?? "").trim();
+  if (!out) {
+    return { ok: false, error: "empty output from `claude auth status`" };
+  }
+  try {
+    const o = JSON.parse(out) as { loggedIn?: unknown };
+    return { ok: true, loggedIn: Boolean(o.loggedIn) };
+  } catch (e) {
+    return { ok: false, error: `failed to parse JSON: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }
 
 async function readFullStream(
@@ -298,6 +326,17 @@ describe(
         assert.fail(
           `claude CLI missing or not runnable (${probe.error}). Install Claude Code CLI, or use default partial mode (skip missing CLIs).`,
         );
+      }
+      if (SMOKE_PARTIAL) {
+        const auth = claudeAuthLoggedIn(SMOKE_CWD);
+        if (!auth.ok) {
+          t.skip(`claude auth status unavailable: ${auth.error}`);
+          return;
+        }
+        if (!auth.loggedIn) {
+          t.skip("claude CLI installed but not logged in (`claude auth status` loggedIn=false)");
+          return;
+        }
       }
       await smokeOneBackend(client, "claude");
     });

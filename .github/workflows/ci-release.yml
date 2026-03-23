@@ -1,7 +1,9 @@
 # CI on every PR and every branch push.
-# CD (semantic-release + npm publish poke-agents) only on push to main after CI passes.
+# CD (semantic-release + npm publish poke-agents + @leokok/poke-agents shim)
+# only on push to main after CI passes.
 #
-# Secrets: NPM_TOKEN — https://www.npmjs.com/settings/~/tokens (publish poke-agents)
+# Secrets: NPM_TOKEN — https://www.npmjs.com/settings/~/tokens
+# (publish poke-agents and @leokok/poke-agents)
 
 name: CI and Release
 

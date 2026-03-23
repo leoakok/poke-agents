@@ -1,0 +1,35 @@
+{
+  "name": "@leokok/poke-agents",
+  "version": "1.4.0",
+  "description": "Legacy shim package that forwards to poke-agents",
+  "type": "module",
+  "bin": {
+    "poke-agents": "cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "poke",
+    "mcp",
+    "agents",
+    "shim",
+    "redirect"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/leoakok/poke-agents#readme",
+  "bugs": {
+    "url": "https://github.com/leoakok/poke-agents/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leoakok/poke-agents.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

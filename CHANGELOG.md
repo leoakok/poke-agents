@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/leoakok/poke-agents/compare/v1.5.0...v1.6.0) (2026-03-23)
+
+
+### Features
+
+* **release:** add [@leokok](https://github.com/leokok) compatibility shim ([aeae089](https://github.com/leoakok/poke-agents/commit/aeae08959666f7ff6bcb3efc8373b9c0919a12c0))
+
 # [1.5.0](https://github.com/leoakok/poke-agents/compare/v1.4.0...v1.5.0) (2026-03-23)
 
 

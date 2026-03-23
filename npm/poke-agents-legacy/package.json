@@ -1,6 +1,6 @@
 {
   "name": "@leokok/poke-agents",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "Legacy shim package that forwards to poke-agents",
   "type": "module",
   "bin": {

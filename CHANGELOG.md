@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/leoakok/poke-agents/compare/v1.6.0...v1.6.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **release:** trigger npm publish for launcher packages ([ebaba6c](https://github.com/leoakok/poke-agents/commit/ebaba6cacd9728ee63233830b4fe3e14416b32f1))
+
 # [1.6.0](https://github.com/leoakok/poke-agents/compare/v1.5.0...v1.6.0) (2026-03-23)
 
 

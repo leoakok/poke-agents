@@ -4,7 +4,7 @@
   "description": "Legacy shim package that forwards to poke-agents",
   "type": "module",
   "bin": {
-    "poke-agents": "cli.mjs"
+    "poke-agents": "./cli.mjs"
   },
   "files": [
     "cli.mjs",
@@ -16,6 +16,8 @@
   "keywords": [
     "poke",
     "mcp",
+    "cli",
+    "launcher",
     "agents",
     "shim",
     "redirect"
@@ -27,7 +29,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leoakok/poke-agents.git"
+    "url": "https://github.com/leoakok/poke-agents.git"
   },
   "publishConfig": {
     "access": "public"

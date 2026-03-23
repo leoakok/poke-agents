@@ -16,7 +16,7 @@ Legacy command still works (compat shim):
 npx @leokok/poke-agents
 ```
 
-Flags / env: **`--yes`**, **`--skip-web`** (MCP only, no dashboard; launcher runs **`npm run build:mcp`** so Next/Turbopack is not built), **`--mcp-name "…"`** (Poke tunnel label + MCP server id), **`POKE_AGENTS_NO_OPEN=1`** (no browser when dashboard runs), **`POKE_AGENTS_YES=1`**, **`POKE_AGENTS_REPO`**, **`POKE_AGENTS_SKIP_WEB`**, **`POKE_AGENTS_SKIP_TUNNEL`**, **`POKE_AGENTS_TUNNEL_NAME`**, **`POKE_AGENTS_MCP_SERVER_NAME`** — see [`npm/poke-agents/README.md`](npm/poke-agents/README.md).
+Flags / env: **`-y/--yes`**, **`--skip-web`** (MCP only, no dashboard; launcher runs **`npm run build:mcp`** so Next/Turbopack is not built), **`-n/--name "…"`** (Poke tunnel label + MCP server id; **`--mcp-name`** is still accepted), **`POKE_AGENTS_NO_OPEN=1`** (no browser when dashboard runs), **`POKE_AGENTS_YES=1`**, **`POKE_AGENTS_REPO`**, **`POKE_AGENTS_SKIP_WEB`**, **`POKE_AGENTS_SKIP_TUNNEL`**, **`POKE_AGENTS_TUNNEL_NAME`**, **`POKE_AGENTS_MCP_SERVER_NAME`** — see [`npm/poke-agents/README.md`](npm/poke-agents/README.md).
 
 The npm scope is **`@leokok`** (launcher only). This repo’s package name remains **`@leoakok/poke-agents`** for the full source tree.
 

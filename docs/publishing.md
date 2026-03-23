@@ -1,6 +1,6 @@
 # Publishing `poke-agents` (+ legacy shim)
 
-The **npm package** is only the thin launcher in **`npm/poke-agents/`** (like `poke-apple-music-mcp/npm/poke-apple-music/`). The rest of this repo is the implementation that gets cloned into `~/.local/share/poke-agents/repo`.
+The **npm package** is only the thin launcher in **`npm/poke-agents/`** (like `poke-music/npm/poke-apple-music/`). The rest of this repo is the implementation that gets cloned into `~/.local/share/poke-agents/repo`.
 
 ## Automated (default)
 

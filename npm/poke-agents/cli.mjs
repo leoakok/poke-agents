@@ -8,21 +8,23 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import https from "node:https";
 import readline from "node:readline/promises";
 import { stdin as input, stderr as output } from "node:process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const rawArgs = process.argv.slice(2);
 
 /** Cache directory under ~/.local/share (stable; not tied to npm scope). */
 const DATA_SUBDIR = "poke-agents";
 
 const autoYes =
-  process.argv.includes("-y") ||
-  process.argv.includes("--yes") ||
+  rawArgs.includes("-y") ||
+  rawArgs.includes("--yes") ||
   process.env.POKE_AGENTS_YES === "1";
 
 /** CLI-only mode: MCP HTTP (+ tunnel if not skipped) — no Next.js dashboard. */
-const skipWebCli = process.argv.includes("--skip-web");
+const skipWebCli = rawArgs.includes("--skip-web");
 const skipWeb =
   skipWebCli || process.env.POKE_AGENTS_SKIP_WEB === "1";
 
@@ -44,8 +46,14 @@ function slugifyMcpServerName(s) {
   return t.length > 64 ? t.slice(0, 64) : t;
 }
 
-/** Sets Poke tunnel `-n` label and MCP `initialize` server name (slug). */
-const mcpNameCli = argAfter("--mcp-name");
+/**
+ * Canonical tunnel/server label flags:
+ *   --name <label>
+ *   -n <label>
+ * Legacy alias still supported:
+ *   --mcp-name <label>
+ */
+const mcpNameCli = argAfter("--name") ?? argAfter("-n") ?? argAfter("--mcp-name");
 
 const color =
   process.stdout.isTTY && !process.env.NO_COLOR
@@ -100,10 +108,60 @@ function githubRepoUrl() {
 function printBanner() {
   const v = pkgVersion();
   const displayName = pkg().name || DATA_SUBDIR;
-  line(color.dim(" ─────────────────────────────────────────"));
-  line(` ${color.bold(displayName)} ${color.dim(`v${v}`)}`);
-  line(color.dim(" ─────────────────────────────────────────"));
+  line(` ${color.bold("Poke")} 🌴 ${displayName} ${color.dim(`v${v}`)}`);
+  line(` ${color.dim(githubRepoUrl())}`);
   line("");
+}
+
+function printOnboarding() {
+  line(` ${color.dim("Quick start:")} checks repo, builds, then starts MCP + tunnel.`);
+  line(` ${color.dim("Tip:")} use -n \"My Agents\" for a custom name.`);
+  line("");
+}
+
+function checkForUpdates() {
+  const current = pkgVersion();
+  const req = https.get(
+    "https://registry.npmjs.org/poke-agents/latest",
+    { timeout: 3000 },
+    (res) => {
+      let data = "";
+      res.on("data", (d) => {
+        data += d;
+      });
+      res.on("end", () => {
+        try {
+          const latest = JSON.parse(data).version;
+          if (latest && latest !== current) {
+            line(` ${color.yellow("New version available:")} poke-agents@${latest}`);
+            line(` ${color.dim("Run: npx poke-agents@latest")}`);
+            line("");
+          }
+        } catch {}
+      });
+    },
+  );
+  req.on("error", () => {});
+  req.on("timeout", () => req.destroy());
+}
+
+function printHelp() {
+  line(`Poke 🌴 / Agents
+
+Usage:
+  poke-agents [--skip-web] [-n NAME] [-y]
+
+Options:
+  -h, --help          show help
+  -v, --version       show version
+  -y, --yes           non-interactive mode
+  -n, --name <label>  tunnel label + MCP server name
+      --mcp-name <l>  legacy alias for --name
+      --skip-web      MCP-only mode (no dashboard)
+
+Guide:
+  ${githubRepoUrl()}
+`);
 }
 
 function printStarCta() {
@@ -349,7 +407,18 @@ function requireGit() {
 }
 
 async function main() {
+  if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
+    printHelp();
+    return;
+  }
+  if (rawArgs.includes("--version") || rawArgs.includes("-v")) {
+    line(pkgVersion());
+    return;
+  }
+
   printBanner();
+  printOnboarding();
+  checkForUpdates();
   requireNode20();
   requireGit();
 

@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/leoakok/poke-agents/compare/v1.6.2...v1.7.0) (2026-03-23)
+
+
+### Features
+
+* **cli:** standardize launcher UX and metadata ([9d4cc6b](https://github.com/leoakok/poke-agents/commit/9d4cc6be609ede52f6ed20b62b97d71ad7b90104))
+
 ## [1.6.2](https://github.com/leoakok/poke-agents/compare/v1.6.1...v1.6.2) (2026-03-23)
 
 

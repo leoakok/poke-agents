@@ -19,3 +19,5 @@ Please migrate scripts and docs to the canonical package:
 ```bash
 npx poke-agents@latest
 ```
+
+The shim keeps existing installs working while showing a migration hint in CLI output.

@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/leoakok/poke-agents/compare/v1.6.1...v1.6.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* **legacy:** use npm exec to avoid Windows npx EINVAL ([d3b729a](https://github.com/leoakok/poke-agents/commit/d3b729ab9b37b1120239946ea03c14a2f55024af))
+
 ## [1.6.1](https://github.com/leoakok/poke-agents/compare/v1.6.0...v1.6.1) (2026-03-23)
 
 

@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 const rawArgs = process.argv.slice(2);
 
 console.error(
-  "[poke-agents] `@leokok/poke-agents` is now a compatibility shim. Redirecting to `npx poke-agents@latest`...",
+  "[poke-agents] `@leokok/poke-agents` is now a compatibility shim. Redirecting to `npx poke-agents@latest`...\n[poke-agents] Tip: you can run `npx poke-agents` directly next time.",
 );
 
 const npmCmd = process.platform === "win32" ? "npx.cmd" : "npx";
